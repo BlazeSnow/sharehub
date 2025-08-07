@@ -1,5 +1,5 @@
 #使用Alpine Linux作为基础镜像
-FROM alpine:3.20
+FROM alpine:3.22.1
 
 # 安装服务
 RUN apk add --no-cache \
