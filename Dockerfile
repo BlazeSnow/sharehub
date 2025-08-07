@@ -2,7 +2,7 @@
 FROM alpine:latest
 
 # 安装服务
-RUN apk add --no-cache vsftpd openssh apache2 apache2-utils samba-server nfs-utils rpcbind bash
+RUN apk add vsftpd openssh
 
 # 创建用户组
 RUN addgroup sharehub
@@ -14,16 +14,14 @@ RUN chown root:sharehub /data
 RUN chmod 770 /data
 
 # 拷贝配置文件
-COPY ./config/ /srv/config
-RUN chmod 700 /srv/config
+COPY ./config/vsftpd.conf /etc/vsftpd/vsftpd.conf
 
 # 添加并授权启动脚本
 COPY entrypoint.sh /srv/entrypoint.sh
 RUN chmod 700 /srv/entrypoint.sh
 
 # 环境变量
-ENV SERVICE=**string**
-ENV USERNAME=sharehub
+ENV SERVICE="vsftpd ssh webdav samba nfs"
 ENV PASSWORD=**random**
 
 # 暴露所有服务端口
