@@ -2,19 +2,11 @@
 FROM alpine:3.22.1
 
 # 安装服务
-RUN apk add --no-cache \
-    vsftpd \
-    openssh \
-    apache2 apache2-utils \
-    samba-server \
-    nfs-utils \
-    rpcbind \
-    bash
+RUN apk add --no-cache vsftpd openssh apache2 apache2-utils samba-server nfs-utils rpcbind bash
 
 # 创建挂载点目录
-# /srv/configs 用于挂载自定义配置文件
-# /srv/data 用于挂载持久化数据
-RUN mkdir -p /srv/configs /srv/data
+RUN mkdir -p /data
+RUN chmod 755 /data
 
 # 添加并授权启动脚本
 COPY entrypoint.sh /srv/entrypoint.sh
