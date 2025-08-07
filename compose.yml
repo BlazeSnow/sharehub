@@ -6,6 +6,15 @@ services:
     restart: always
     network_mode: host
     environment:
-      SERVICE: ftp
-      USERNAME: user
-      PASSWORD: password
+      - TZ=Asia/Shanghai
+      - SERVICE=ftp
+      - USERNAME=user
+      - PASSWORD=pass
+      # 仅当FTP被动模式有问题时，取消注释并设置为宿主机IP
+      # - PASV_ADDRESS=192.168.1.100  
+    volumes:
+      - ./data:/srv/data
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - apparmor:unconfined
