@@ -1,79 +1,162 @@
-#!/bin/bash
+#!/bin/sh
+set -e
 
-set -eu
+SHARE_DIR="/srv/data"
+USER_NAME=${USERNAME:-user}
+USER_PASS=${PASSWORD:-pass}
 
-if [ -z "${SERVICE:-}" ] || [ -z "${USERNAME:-}" ] || [ -z "${PASSWORD:-}" ]; then
-    echo "错误: 必须同时设置 'SERVICE', 'USERNAME', 和 'PASSWORD' 环境变量。" >&2
-    exit 1
-fi
-
-create_system_user() {
-    if ! id -u "${USERNAME}" &>/dev/null; then
-        echo "正在创建系统用户: ${USERNAME}"
-        useradd -m -s /bin/false "${USERNAME}"
+add_system_user() {
+    if ! id -u "$USER_NAME" >/dev/null 2>&1; then
+        adduser -D -h "$SHARE_DIR" -s /bin/false "$USER_NAME"
     fi
-    echo "正在为用户 ${USERNAME} 设置密码..."
-    echo "${USERNAME}:${PASSWORD}" | chpasswd
+    echo "$USER_NAME:$USER_PASS" | chpasswd
+}
+
+start_ftp() {
+    echo "Starting FTP server..."
+    add_system_user
+    chown -R "$USER_NAME:$USER_NAME" "$SHARE_DIR"
+
+    cat >/etc/vsftpd/vsftpd.conf <<EOF
+listen=YES
+listen_ipv6=NO
+anonymous_enable=NO
+local_enable=YES
+write_enable=YES
+local_umask=022
+dirmessage_enable=YES
+use_localtime=YES
+xferlog_enable=YES
+connect_from_port_20=YES
+chroot_local_user=YES
+allow_writeable_chroot=YES
+secure_chroot_dir=/var/run/vsftpd/empty
+pam_service_name=vsftpd
+pasv_enable=YES
+pasv_min_port=21000
+pasv_max_port=21010
+pasv_address=0.0.0.0
+user_sub_token=\$USER
+local_root=\$SHARE_DIR
+EOF
+    /usr/sbin/vsftpd /etc/vsftpd/vsftpd.conf
+}
+
+start_sftp() {
+    echo "Starting SFTP server..."
+    if ! id -u "$USER_NAME" >/dev/null 2>&1; then
+        adduser -D -h "$SHARE_DIR" -s /sbin/nologin "$USER_NAME"
+    fi
+    echo "$USER_NAME:$USER_PASS" | chpasswd
+    chown -R "$USER_NAME:$USER_NAME" "$SHARE_DIR"
+
+    cat >/etc/ssh/sshd_config <<EOF
+Port 22
+Protocol 2
+PermitRootLogin no
+PasswordAuthentication yes
+ChallengeResponseAuthentication no
+UsePAM yes
+Subsystem sftp internal-sftp
+
+Match User $USER_NAME
+    ChrootDirectory $SHARE_DIR
+    ForceCommand internal-sftp
+    AllowTcpForwarding no
+    X11Forwarding no
+EOF
+    /usr/sbin/sshd -D
+}
+
+start_webdav() {
+    echo "Starting WebDAV (Apache) server..."
+    htpasswd -cb /etc/apache2/htpasswd "$USER_NAME" "$USER_PASS"
+    chown -R apache:apache "$SHARE_DIR"
+
+    cat >/etc/apache2/httpd.conf <<EOF
+ServerRoot "/etc/apache2"
+Listen 80
+LoadModule mpm_event_module modules/mod_mpm_event.so
+LoadModule authz_core_module modules/mod_authz_core.so
+LoadModule auth_basic_module modules/mod_auth_basic.so
+LoadModule authn_file_module modules/mod_authn_file.so
+LoadModule dav_module modules/mod_dav.so
+LoadModule dav_fs_module modules/mod_dav_fs.so
+User apache
+Group apache
+
+DavLockDB /var/lib/dav/lock.db
+<Directory "$SHARE_DIR">
+    Dav On
+    AuthType Basic
+    AuthName "WebDAV"
+    AuthUserFile /etc/apache2/htpasswd
+    Require valid-user
+</Directory>
+EOF
+    mkdir -p /var/lib/dav
+    chown apache:apache /var/lib/dav
+    httpd -D FOREGROUND
+}
+
+start_smb() {
+    echo "Starting SMB server..."
+    add_system_user
+    (
+        echo "$USER_PASS"
+        echo "$USER_PASS"
+    ) | smbpasswd -a -s "$USER_NAME"
+    chown -R "$USER_NAME:$USER_NAME" "$SHARE_DIR"
+
+    cat >/etc/samba/smb.conf <<EOF
+[global]
+workgroup = WORKGROUP
+server string = ShareHub SMB Server
+netbios name = sharehub
+security = user
+map to guest = bad user
+dns proxy = no
+[public]
+path = $SHARE_DIR
+browseable = yes
+writable = yes
+guest ok = no
+read only = no
+valid users = $USER_NAME
+EOF
+    /usr/sbin/smbd -F --no-process-group
+}
+
+start_nfs() {
+    echo "Starting NFS server..."
+    if ! grep -q "$SHARE_DIR" /etc/exports; then
+        echo "$SHARE_DIR *(rw,sync,no_subtree_check,no_root_squash)" >>/etc/exports
+    fi
+
+    rpcbind -f &
+    /usr/sbin/exportfs -r
+    exec /usr/sbin/nfsd --no-udp 8
 }
 
 case "$SERVICE" in
 ftp)
-    echo "启动 FTP 服务..."
-    create_system_user
-    cp /configs/vsftpd.conf /etc/vsftpd/vsftpd.conf
-    sed -i "s#\$USER#${USERNAME}#g" /etc/vsftpd/vsftpd.conf
-    echo "FTP 服务配置完成，正在启动 vsftpd..."
-    exec /usr/sbin/vsftpd /etc/vsftpd/vsftpd.conf
+    start_ftp
     ;;
-
 sftp)
-    echo "启动 SFTP 服务..."
-    create_system_user
-    cp /configs/sshd_config /etc/ssh/sshd_config
-    echo "Match User ${USERNAME}" >>/etc/ssh/sshd_config
-    echo "    ChrootDirectory /data" >>/etc/ssh/sshd_config
-    echo "    ForceCommand internal-sftp" >>/etc/ssh/sshd_config
-    echo "    AllowTcpForwarding no" >>/etc/ssh/sshd_config
-    echo "    X11Forwarding no" >>/etc/ssh/sshd_config
-    echo "SFTP 服务配置完成，正在启动 sshd..."
-    exec /usr/sbin/sshd -D
+    start_sftp
     ;;
-
 webdav)
-    echo "启动 WebDAV 服务..."
-    cp /configs/webdav.conf /etc/apache2/conf.d/webdav.conf
-    htpasswd -bc /etc/apache2/webdav.password "${USERNAME}" "${PASSWORD}"
-    sed -i 's/^#ServerName .*/ServerName localhost/' /etc/apache2/httpd.conf
-    echo "Include /etc/apache2/conf.d/webdav.conf" >>/etc/apache2/httpd.conf
-    echo "WebDAV 服务配置完成，正在启动 Apache httpd..."
-    exec httpd -D FOREGROUND
+    start_webdav
     ;;
-
 smb)
-    echo "启动 SMB/Samba 服务..."
-    cp /configs/smb.conf /etc/samba/smb.conf
-    (
-        echo "${PASSWORD}"
-        echo "${PASSWORD}"
-    ) | smbpasswd -a -s "${USERNAME}"
-    echo "Samba 服务配置完成，正在启动 smbd..."
-    exec smbd --foreground --no-process-group
+    start_smb
     ;;
-
 nfs)
-    echo "启动 NFS 服务..."
-    cp /configs/exports /etc/exports
-    echo "正在启动 NFS 依赖服务..."
-    /usr/sbin/rpcbind
-    /usr/sbin/rpc.nfsd
-    /usr/sbin/exportfs -ra
-    echo "NFS 服务配置完成，正在启动 rpc.mountd 作为主进程..."
-    exec /usr/sbin/rpc.mountd -F
+    start_nfs
     ;;
-
 *)
-    echo "错误: 无效的 SERVICE 值 '${SERVICE}'。" >&2
-    echo "支持的服务为: ftp, sftp, webdav, smb, nfs" >&2
+    echo "Error: Unknown service '$SERVICE'"
+    echo "Available services: ftp, sftp, webdav, smb, nfs"
     exit 1
     ;;
 esac

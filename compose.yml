@@ -1,5 +1,6 @@
 services:
   sharehub:
+    build: .
     image: blazesnow/sharehub:dev
     container_name: sharehub
     restart: always
