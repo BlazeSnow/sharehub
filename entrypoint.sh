@@ -35,10 +35,14 @@ pam_service_name=vsftpd
 pasv_enable=YES
 pasv_min_port=21000
 pasv_max_port=21010
-pasv_address=0.0.0.0
 user_sub_token=\$USER
 local_root=\$SHARE_DIR
 EOF
+
+    if [ -n "$PASV_ADDRESS" ]; then
+        echo "pasv_address=$PASV_ADDRESS" >>/etc/vsftpd/vsftpd.conf
+    fi
+
     /usr/sbin/vsftpd /etc/vsftpd/vsftpd.conf
 }
 
