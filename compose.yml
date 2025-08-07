@@ -1,0 +1,10 @@
+services:
+  sharehub:
+    image: blazesnow/sharehub:dev
+    container_name: sharehub
+    restart: always
+    network_mode: host
+    environment:
+      SERVICE: ftp
+      USERNAME: user
+      PASSWORD: password
