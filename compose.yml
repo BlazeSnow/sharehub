@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile.ftp
     image: blazesnow/sharehub:ftp
     container_name: ftp
-    restart: unless-stopped
+    restart: no
     ports:
       - 20:20
       - 21:21

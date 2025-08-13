@@ -13,7 +13,7 @@ fi
 
 # 创建用户
 if ! id "$USERNAME" &>/dev/null; then
-    sudo useradd -m -u 1000 "$USERNAME"
+    useradd -m -u 1000 "$USERNAME"
 fi
 
 # 通过openssl生成加密密码
