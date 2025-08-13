@@ -1,16 +1,15 @@
 services:
-  sharehub:
-    build: .
-    image: blazesnow/sharehub:dev
-    container_name: sharehub
+  ftp:
+    build:
+      context: .
+      dockerfile: Dockerfile.ftp
+    image: blazesnow/sharehub:ftp
+    container_name: ftp
     restart: always
-    network_mode: host
+    ports:
+      - 21:21
     environment:
-      - TZ=Asia/Shanghai
-      - SERVICE=ftp
-      - USERNAME=user
-      - PASSWORD=pass
-      # 仅当FTP被动模式有问题时，取消注释并设置为宿主机IP
-      # - PASV_ADDRESS=192.168.1.100  
+      - USERNAME=blazesnow
+      - PASSWORD=password
     volumes:
       - ./data:/data
