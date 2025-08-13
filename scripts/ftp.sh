@@ -2,4 +2,6 @@
 
 /srv/adduser.sh
 
-service vsftpd restart
+/usr/sbin/vsftpd /etc/vsftpd.conf
+
+tail -f /dev/null
