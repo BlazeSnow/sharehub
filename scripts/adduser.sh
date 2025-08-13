@@ -24,6 +24,3 @@ echo "${USERNAME}:${ENCRYPTED_PWD}" | chpasswd -e
 
 # 验证用户创建
 id "$USERNAME" && echo "用户 ${USERNAME} 创建成功"
-
-# 继续执行命令
-exec "$@"
