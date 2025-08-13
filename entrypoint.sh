@@ -15,14 +15,14 @@ fi
 if id "$USERNAME" &>/dev/null; then
     echo "用户 $USERNAME 已存在"
 else
-    sudo useradd --create-home --shell /usr/sbin/nologin --comment "Automated CI User" "$USERNAME"
+    useradd --create-home --shell /usr/sbin/nologin --comment "Automated CI User" "$USERNAME"
 fi
 
 # 通过openssl生成加密密码
 ENCRYPTED_PWD=$(openssl passwd -6 -salt $(openssl rand -base64 4) <<<"$PASSWORD")
 
 # 安全更新密码
-echo "${USERNAME}:${ENCRYPTED_PWD}" | sudo chpasswd -e
+echo "${USERNAME}:${ENCRYPTED_PWD}" | chpasswd -e
 
 # 验证用户创建
 id "$USERNAME" && echo "用户 ${USERNAME} 创建成功"
