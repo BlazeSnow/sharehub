@@ -1,0 +1,16 @@
+# 禁用root登录
+PermitRootLogin no
+
+# 或使用用户组限制
+AllowGroups sharehub
+
+# 限制SFTP子系统（禁用Shell访问）
+Subsystem sftp internal-sftp
+
+# 禁止端口转发和PTY
+Match Group sharehub
+    ChrootDirectory /srv/sftp/%u
+    ForceCommand internal-sftp
+    PermitTTY no
+    X11Forwarding no
+    AllowTcpForwarding no

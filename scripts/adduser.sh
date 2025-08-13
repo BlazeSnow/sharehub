@@ -14,6 +14,7 @@ fi
 # 创建用户
 if ! id "$USERNAME" &>/dev/null; then
     useradd -m -u 1000 "$USERNAME"
+    adduser -S "$USERNAME" -G sharehub
 fi
 
 # 通过openssl生成加密密码

@@ -15,3 +15,18 @@ services:
       - PASSWORD=password
     volumes:
       - ./data:/data
+
+  sftp:
+    build:
+      context: .
+      dockerfile: Dockerfile.sftp
+    image: blazesnow/sharehub:sftp
+    container_name: sftp
+    restart: no
+    ports:
+      - 22:22
+    environment:
+      - USERNAME=blazesnow
+      - PASSWORD=password
+    volumes:
+      - ./data:/data

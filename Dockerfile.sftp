@@ -1,0 +1,15 @@
+FROM debian:12
+
+RUN apt-get update && apt-get install openssh-server -y
+
+COPY ./config/sshd_config /etc/ssh/sshd_config
+
+COPY ./scripts/adduser.sh /srv/adduser.sh
+RUN chmod 700 /srv/adduser.sh
+
+COPY ./scripts/sftp.sh /srv/sftp.sh
+RUN chmod 700 /srv/sftp.sh
+
+EXPOSE 22
+
+CMD [ "/srv/sftp.sh" ]
