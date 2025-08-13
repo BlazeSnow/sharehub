@@ -6,6 +6,8 @@ RUN addgroup sharehub
 
 RUN adduser --group sharehub admin
 
+RUN echo "admin:password" | chpasswd -e
+
 COPY ./config/pure-ftpd.conf /etc/pure-ftpd/pure-ftpd.conf
 
 EXPOSE 21 35000-35999

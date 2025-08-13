@@ -9,6 +9,3 @@ services:
     ports:
       - 21:21
       - 35000-35999:35000-35999
-    environment:
-      - USERNAME=blazesnow
-      - PASSWORD=password
