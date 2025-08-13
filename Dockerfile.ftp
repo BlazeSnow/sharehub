@@ -1,4 +1,4 @@
-FROM debian:12
+FROM debian:13
 
 RUN apt-get update && apt-get install vsftpd -y
 
@@ -10,6 +10,6 @@ RUN chmod 700 /srv/adduser.sh
 COPY ./scripts/ftp.sh /srv/ftp.sh
 RUN chmod 700 /srv/ftp.sh
 
-EXPOSE 20 21 21100-21110
+EXPOSE 21 21100-21110
 
 CMD [ "/srv/ftp.sh" ]
