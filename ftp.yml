@@ -12,5 +12,3 @@ services:
     environment:
     - USERNAME=blazesnow
     - PASSWORD=password
-    volumes:
-    - ./data:/data
