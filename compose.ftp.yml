@@ -7,8 +7,8 @@ services:
     container_name: ftp
     restart: no
     ports:
-    - 21:21
-    - 21100-21110:21100-21110
+      - 21:21
+      - 21100-21110:21100-21110
     environment:
-    - USERNAME=blazesnow
-    - PASSWORD=password
+      - USERNAME=blazesnow
+      - PASSWORD=password
