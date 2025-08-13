@@ -1,4 +1,4 @@
-name: Docker image development
+name: blazesnow/sharehub:ftp
 
 on:
   workflow_dispatch:
@@ -29,5 +29,6 @@ jobs:
       uses: docker/build-push-action@v6
       with:
         context: .
+        file: Dockerfile.ftp
         push: true
-        tags: blazesnow/sharehub:dev
+        tags: blazesnow/sharehub:ftp
