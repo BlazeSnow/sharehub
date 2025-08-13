@@ -4,12 +4,12 @@ RUN apt-get update && apt-get install vsftpd -y
 
 COPY config/vsftpd.conf /etc/vsftpd.conf
 
-COPY scripts/adduser.sh /srv/
+COPY scripts/adduser.sh /srv/adduser.sh
 RUN chmod 755 /srv/adduser.sh
 
-COPY scripts/ftp.sh /srv/
+COPY scripts/ftp.sh /srv/ftp.sh
 RUN chmod 755 /srv/ftp.sh
 
 EXPOSE 21 21100-21110
 
-CMD [ "/srv/ftp.sh" ]
+CMD ["sh","/srv/ftp.sh"]
