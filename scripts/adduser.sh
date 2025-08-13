@@ -13,6 +13,7 @@ fi
 
 # 创建用户
 if ! id "$USERNAME" &>/dev/null; then
+    addgroup -S sharehub
     useradd -m -u 1000 "$USERNAME"
     adduser -S "$USERNAME" -G sharehub
 fi

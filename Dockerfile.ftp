@@ -4,8 +4,6 @@ RUN apt-get update && apt-get install vsftpd -y
 
 COPY ./config/vsftpd.conf /etc/vsftpd.conf
 
-RUN addgroup -S sharehub
-
 COPY ./scripts/adduser.sh /srv/adduser.sh
 RUN chmod 700 /srv/adduser.sh
 
