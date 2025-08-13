@@ -11,4 +11,4 @@ EXPOSE 21 21000-21010
 
 ENTRYPOINT [ "/srv/entrypoint.sh" ]
 
-CMD [ "vsftpd", "-foreground", "/etc/vsftpd.conf" ]
+CMD [ "/usr/sbin/vsftpd","/etc/vsftpd.conf" ]
