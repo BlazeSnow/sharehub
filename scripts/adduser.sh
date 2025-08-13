@@ -12,10 +12,8 @@ if [[ -z "$USERNAME" || -z "$PASSWORD" ]]; then
 fi
 
 # 创建用户
-if id "$USERNAME" &>/dev/null; then
-    echo "用户 $USERNAME 已存在"
-else
-    useradd --create-home --shell /usr/sbin/nologin --comment "Automated CI User" "$USERNAME"
+if ! id "$USERNAME" &>/dev/null; then
+    sudo useradd -m -u 1000 "$USERNAME"
 fi
 
 # 通过openssl生成加密密码
