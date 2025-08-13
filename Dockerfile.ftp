@@ -1,15 +1,13 @@
 FROM debian:13
 
-RUN apt-get update && apt-get install vsftpd -y
+RUN apt-get update && apt-get install pure-ftpd -y
 
-COPY config/vsftpd.conf /etc/vsftpd.conf
+RUN addgroup sharehub
 
-COPY scripts/adduser.sh /srv/adduser.sh
-RUN chmod 755 /srv/adduser.sh
+RUN adduser --group sharehub admin
 
-COPY scripts/ftp.sh /srv/ftp.sh
-RUN chmod 755 /srv/ftp.sh
+COPY ./config/pure-ftpd.conf /etc/pure-ftpd/pure-ftpd.conf
 
-EXPOSE 21 21100-21110
+EXPOSE 21 35000-35999
 
-CMD ["sh","/srv/ftp.sh"]
+CMD ["pure-ftpd"]

@@ -8,7 +8,7 @@ services:
     restart: no
     ports:
       - 21:21
-      - 21100-21110:21100-21110
+      - 35000-35999:35000-35999
     environment:
       - USERNAME=blazesnow
       - PASSWORD=password
