@@ -1,2 +1,2 @@
 service vsftpd restart
-vsftpd /etc/vsftpd.conf
+/usr/sbin/vsftpd /etc/vsftpd.conf
