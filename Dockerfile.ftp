@@ -2,11 +2,11 @@ FROM debian:13
 
 RUN apt-get update && apt-get install pure-ftpd -y
 
-RUN addgroup sharehub
+RUN groupadd -f sharehub
 
-RUN adduser --group sharehub admin
+RUN useradd -g sharehub -m -s /bin/bash admin
 
-RUN echo "admin:password" | chpasswd -e
+RUN echo "admin:password" | chpasswd
 
 COPY ./config/pure-ftpd.conf /etc/pure-ftpd/pure-ftpd.conf
 
