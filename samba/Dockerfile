@@ -14,4 +14,4 @@ RUN chmod 775 /data
 
 EXPOSE 445 139
 
-CMD [ "smbd", "-s", "/srv/sharehub.conf" ]
+CMD [ "smbd", "-F", "-s", "/srv/sharehub.conf" ]
