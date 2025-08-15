@@ -8,6 +8,10 @@ on:
         required: true
         default: ':beta'
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   publish:
     runs-on: ubuntu-latest
