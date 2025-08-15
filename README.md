@@ -21,8 +21,8 @@ services:
       - ./data:/data
 ```
 
-默认用户名：`admin`
-默认密码：`password`
+- 默认用户名：`admin`
+- 默认密码：`password`
 
 修改密码步骤：
 
