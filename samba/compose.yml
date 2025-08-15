@@ -9,3 +9,5 @@ services:
     ports:
       - 445:445
       - 139:139
+    volumes:
+      - ./data:/data
