@@ -27,6 +27,9 @@ services:
 修改密码步骤：
 
 ```bash
+# 进入终端
 docker exec -it smb /bin/bash
+
+# 修改密码
 smbpasswd admin
 ```
