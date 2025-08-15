@@ -2,11 +2,11 @@ FROM debian:13
 
 RUN apt-get update && apt-get install pure-ftpd -y
 
-RUN mkdir -p /data/admin
+RUN groupadd -f sharehub
 
-RUN pure-pw useradd admin -u 1000 -d /data/admin
+RUN useradd -g sharehub -m -s /bin/bash admin
 
-RUN echo -e "password\npassword" | pure-pw passwd admin && pure-pw mkdb
+RUN echo "admin:password" | chpasswd
 
 EXPOSE 21 35000-35999
 

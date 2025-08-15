@@ -2,7 +2,7 @@ services:
   ftp:
     build:
       context: .
-      dockerfile: Dockerfile.ftp
+      dockerfile: Dockerfile
     image: blazesnow/sharehub:ftp
     container_name: ftp
     restart: no
