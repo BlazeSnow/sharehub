@@ -39,7 +39,7 @@ jobs:
       uses: docker/build-push-action@v6
       with:
         context: ./samba
-        file: Dockerfile
+        file: ./samba/Dockerfile
         push: true
         tags: |
           blazesnow/sharehub-smb${{ inputs.tag }}
