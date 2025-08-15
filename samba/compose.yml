@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: blazesnow/sharehub:smb
+    image: blazesnow/sharehub-smb:beta
     container_name: smb
     restart: no
     ports:
