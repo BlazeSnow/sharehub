@@ -35,7 +35,7 @@ jobs:
     - name: Build and push
       uses: docker/build-push-action@v6
       with:
-        context: samba
+        context: ./samba
         file: Dockerfile
         push: true
         tags: |
