@@ -1,0 +1,1 @@
+docker.exe compose up --build
