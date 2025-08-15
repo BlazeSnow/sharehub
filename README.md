@@ -2,11 +2,15 @@
 
 ## SMB
 
+### 介绍
+
+此镜像基于Debian 13，使用Samba进行文件共享。
+
 ```bash
 docker pull blazesnow/sharehub-smb:beta
 ```
 
-`docker-compose.yml`文件：
+### `docker-compose.yml`
 
 ```yml
 services:
@@ -20,6 +24,8 @@ services:
     volumes:
       - ./data:/data
 ```
+
+### 用户名与密码
 
 - 默认用户名：`admin`
 - 默认密码：`password`
