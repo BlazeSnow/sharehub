@@ -1,0 +1,11 @@
+services:
+  smb:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: blazesnow/sharehub:smb
+    container_name: smb
+    restart: no
+    ports:
+      - 445:445
+      - 139:139
