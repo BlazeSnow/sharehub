@@ -39,5 +39,5 @@ jobs:
         file: Dockerfile
         push: true
         tags: |
-          blazesnow/sharehub-smb{{ inputs.tag }}
-          ghcr.io/blazesnow/sharehub-smb{{ inputs.tag }}
+          blazesnow/sharehub-smb${{ inputs.tag }}
+          ghcr.io/blazesnow/sharehub-smb${{ inputs.tag }}
