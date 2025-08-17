@@ -1,12 +1,12 @@
 FROM alpine:3.22.1
 
 RUN apk update \
-    && apk add --no-cache bash \
+    && apk add --no-cache bash tzdata shadow \
     vsftpd \
     openssh \
     apache2 apache2-utils \
     samba \
-    nfs-utils
+    nfs-utils rpcbind
 
 ENV AGREE true
 ENV USERNAME sharehub
