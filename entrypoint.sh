@@ -23,6 +23,11 @@ main_setup() {
     mkdir -p "$SHAREPATH"
     chown -R "$USERNAME":"$USERNAME" "$SHAREPATH"
 
+    # 创建必要的目录
+    mkdir -p /var/run/apache2
+    mkdir -p /var/log/samba
+    mkdir -p /etc/vsftpd
+
     if [ "$WRITABLE" == "true" ]; then
         echo "   - 授予共享目录 '写' 权限"
         chmod -R 775 "$SHAREPATH"
@@ -124,11 +129,23 @@ setup_webdav() {
     if [ "$WEBDAV" != "true" ]; then return; fi
     echo "-> 正在配置 WebDAV 服务 (Apache2)..."
 
-    # --- 这里是唯一的修改 ---
-    # 使用更可靠的模块文件名进行匹配，以确保模块被加载
-    sed -i -e '/mod_dav.so/s/^#//' \
-        -e '/mod_dav_fs.so/s/^#//' \
-        -e '/mod_auth_digest.so/s/^#//' /etc/apache2/httpd.conf
+    # 检查并加载必要的模块
+    local apache_modules_dir="/usr/lib/apache2"
+    echo "   - 检查Apache模块目录: $apache_modules_dir"
+
+    if [ -f "$apache_modules_dir/mod_dav.so" ]; then
+        echo "   - 加载DAV相关模块"
+        echo "LoadModule dav_module lib/apache2/mod_dav.so" >>/etc/apache2/httpd.conf
+        echo "LoadModule dav_fs_module lib/apache2/mod_dav_fs.so" >>/etc/apache2/httpd.conf
+        echo "LoadModule auth_digest_module lib/apache2/mod_auth_digest.so" >>/etc/apache2/httpd.conf
+    else
+        echo "   - 错误：找不到Apache DAV模块，尝试查找模块位置..."
+        find /usr -name "mod_dav*.so" 2>/dev/null | head -5
+        echo "   - 尝试使用sed方式启用模块"
+        sed -i -e '/mod_dav.so/s/^#//' \
+            -e '/mod_dav_fs.so/s/^#//' \
+            -e '/mod_auth_digest.so/s/^#//' /etc/apache2/httpd.conf
+    fi
 
     echo "   - 为 WebDAV 创建用户凭证 (手动生成，绕过 htdigest)"
     local REALM="ShareHub"
