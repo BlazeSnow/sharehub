@@ -6,8 +6,7 @@ services:
     image: blazesnow/sharehub:beta
     container_name: sharehub
     restart: no # unless-stopped
-    cap_add:
-      - SYS_ADMIN # For NFS
+    privileged: true # For NFS
     volumes:
       - ./data:/sharehub
     ports:

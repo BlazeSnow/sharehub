@@ -227,9 +227,16 @@ start_services() {
         # 启动 NFS 相关服务
         /usr/sbin/rpc.mountd -F &
         /usr/sbin/rpc.nfsd 8 &
-        # 导出文件系统
-        exportfs -a
+        # 尝试导出文件系统，忽略错误
+        echo "   - 尝试导出 NFS 文件系统..."
+        if ! exportfs -a 2>/dev/null; then
+            echo "   [警告] NFS 导出失败，这在容器环境中是正常的"
+            echo "   [提示] 请确保容器运行时使用 --privileged 参数或适当的 capabilities"
+        fi
     fi
+
+    # 添加一个小延迟确保所有服务都已启动
+    sleep 3
 
     echo "================================================="
     echo " ShareHub 服务已全部启动完毕！"
@@ -240,7 +247,9 @@ start_services() {
     echo " - SSH:    ssh $USERNAME@<host> (如果启用)"
     echo " - WebDAV: http://<host>/webdav (用户: $USERNAME)"
     echo " - SMB:    smb://<host>/share"
-    echo " - NFS:    <host>:$SHAREPATH"
+    if [ "$NFS" == "true" ]; then
+        echo " - NFS:    <host>:$SHAREPATH (需要 --privileged 模式)"
+    fi
     echo "================================================="
 
     if [ "$WEBDAV" == "true" ]; then
