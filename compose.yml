@@ -2,7 +2,7 @@ services:
   sharehub:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     image: blazesnow/sharehub:beta
     container_name: sharehub
     restart: no # unless-stopped
