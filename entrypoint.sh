@@ -167,7 +167,7 @@ setup_webdav() {
         else
             HASH=$(echo "$PASSWORD" | busybox cryptpw -m sha512)
         fi
-        echo "$USERNAME:$HASH" >/etc/nginx/webdav.passwd
+        echo "$USERNAME:$HASH" > /etc/nginx/webdav.passwd
     fi
 
     echo "   - 配置 Nginx WebDAV"
@@ -233,11 +233,11 @@ http {
             
 EOF
 
-    # 只有在扩展模块可用时才添加扩展方法
+    # 只有在扩展模块可用时才添加扩展方法，并使用正确的语法
     if [ "$WEBDAV_EXT_AVAILABLE" = "true" ]; then
         cat >>/etc/nginx/nginx.conf <<EOF
             # 扩展 WebDAV 方法（需要 dav_ext 模块）
-            dav_ext_methods PROPFIND PROPPATCH LOCK UNLOCK;
+            dav_ext_methods PROPFIND OPTIONS LOCK UNLOCK;
             
 EOF
     fi
@@ -260,6 +260,15 @@ EOF
             autoindex on;
             autoindex_exact_size off;
             autoindex_localtime on;
+            
+            # WebDAV 兼容性设置
+            if (\$request_method = PROPFIND) {
+                add_header Content-Type text/xml;
+            }
+            
+            # 允许的方法
+            add_header Allow "GET, HEAD, POST, PUT, DELETE, OPTIONS, PROPFIND, PROPPATCH, MKCOL, COPY, MOVE, LOCK, UNLOCK";
+            add_header DAV "1, 2";
 EOF
 
     if [ "$WRITABLE" != "true" ]; then
@@ -276,6 +285,17 @@ EOF
     fi
 
     cat >>/etc/nginx/nginx.conf <<EOF
+        }
+        
+        # 处理 OPTIONS 请求
+        location ~ ^/webdav/.*$ {
+            if (\$request_method = OPTIONS) {
+                add_header Allow "GET, HEAD, POST, PUT, DELETE, OPTIONS, PROPFIND, PROPPATCH, MKCOL, COPY, MOVE, LOCK, UNLOCK";
+                add_header DAV "1, 2";
+                add_header Content-Length 0;
+                add_header Content-Type text/plain;
+                return 200;
+            }
         }
         
         # 错误页面
@@ -309,6 +329,7 @@ EOF
 
     echo "   - Nginx WebDAV 配置完成"
 }
+
 
 # 启动所有已启用的服务
 start_services() {
