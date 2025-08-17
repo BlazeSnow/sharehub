@@ -144,123 +144,109 @@ setup_nfs() {
 # 配置 WebDAV 服务
 setup_webdav() {
     if [ "$WEBDAV" != "true" ]; then return; fi
-    echo "-> 正在配置 WebDAV 服务 (Apache2)..."
+    echo "-> 正在配置 WebDAV 服务 (Nginx)..."
 
-    echo "   - 检查可用的 Apache 模块"
-
-    # 首先检查哪些模块文件实际存在
-    find /usr -name "*dav*" -type f 2>/dev/null | head -10
-    find /usr -name "*apache*" -type d 2>/dev/null | head -5
-
-    # 检查 Apache 配置中已有的模块
-    echo "   - 检查 Apache 默认配置"
-    if [ -f /etc/apache2/httpd.conf ]; then
-        grep -i "LoadModule.*dav" /etc/apache2/httpd.conf || echo "     没有找到预加载的 DAV 模块"
-    fi
-
-    # 尝试使用 Alpine 的标准模块加载方式
-    echo "   - 尝试启用 WebDAV 模块"
-
-    # 在 Alpine 中，可能需要这样加载模块
-    cat >>/etc/apache2/httpd.conf <<'EOF'
-
-# WebDAV 模块配置
-LoadModule dav_module modules/mod_dav.so
-LoadModule dav_fs_module modules/mod_dav_fs.so
-LoadModule auth_digest_module modules/mod_auth_digest.so
-EOF
-
-    # 如果上面的方式失败，尝试不使用 WebDAV 模块，只使用基本的文件服务
     echo "   - 为 WebDAV 创建用户凭证"
-    local REALM="ShareHub"
+    # 为 nginx 创建基本认证文件
+    htpasswd -cb /etc/nginx/webdav.passwd "$USERNAME" "$PASSWORD"
 
-    # 使用 htpasswd 而不是手动创建 digest 认证
-    if command -v htpasswd >/dev/null 2>&1; then
-        htpasswd -cb /etc/apache2/webdav.passwd "$USERNAME" "$PASSWORD"
-        AUTH_TYPE="Basic"
-        AUTH_FILE="/etc/apache2/webdav.passwd"
-    else
-        # 回退到 digest 认证
-        HASH=$(printf "%s:%s:%s" "$USERNAME" "$REALM" "$PASSWORD" | md5sum | cut -d' ' -f1)
-        echo "${USERNAME}:${REALM}:${HASH}" >/etc/apache2/webdav.passwd
-        AUTH_TYPE="Digest"
-        AUTH_FILE="/etc/apache2/webdav.passwd"
-    fi
+    echo "   - 配置 Nginx WebDAV"
+    cat >/etc/nginx/nginx.conf <<EOF
+user nginx;
+worker_processes auto;
+error_log /var/log/nginx/error.log warn;
+pid /var/run/nginx.pid;
 
-    # 创建一个简化的 WebDAV 配置，不依赖特定模块
-    cat >/etc/apache2/conf.d/webdav.conf <<EOF
-# 基本的文件共享配置（如果 WebDAV 模块不可用，至少提供基本的 HTTP 文件访问）
-<VirtualHost *:80>
-    DocumentRoot $SHAREPATH
-    DirectoryIndex disabled
+events {
+    worker_connections 1024;
+}
+
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
     
-    <Directory $SHAREPATH>
-        Options Indexes FollowSymLinks
-        AllowOverride None
+    log_format main '\$remote_addr - \$remote_user [\$time_local] "\$request" '
+                    '\$status \$body_bytes_sent "\$http_referer" '
+                    '"\$http_user_agent" "\$http_x_forwarded_for"';
+    
+    access_log /var/log/nginx/access.log main;
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+    keepalive_timeout 65;
+    types_hash_max_size 2048;
+    
+    # WebDAV 服务器配置
+    server {
+        listen 80;
+        server_name _;
         
-        # 如果 WebDAV 可用，启用它
-        <IfModule mod_dav.c>
-            DAV On
-        </IfModule>
+        # 根路径 - 文件浏览
+        location / {
+            root $SHAREPATH;
+            autoindex on;
+            autoindex_exact_size off;
+            autoindex_localtime on;
+            
+            auth_basic "ShareHub File Share";
+            auth_basic_user_file /etc/nginx/webdav.passwd;
+        }
         
-        # 认证配置
-        Auth${AUTH_TYPE} "ShareHub File Share"
-        AuthUserFile ${AUTH_FILE}
-        Require valid-user
+        # WebDAV 路径
+        location /webdav {
+            alias $SHAREPATH;
+            
+            # 启用 WebDAV 方法
+            dav_methods PUT DELETE MKCOL COPY MOVE;
+            dav_ext_methods PROPFIND PROPPATCH LOCK UNLOCK;
+            
+            # 创建完整路径
+            create_full_put_path on;
+            
+            # 访问权限
+            dav_access user:rw group:rw all:r;
+            
+            # 认证
+            auth_basic "ShareHub WebDAV";
+            auth_basic_user_file /etc/nginx/webdav.passwd;
+            
+            # 客户端最大上传大小
+            client_max_body_size 0;
+            
+            # 自动索引
+            autoindex on;
+            autoindex_exact_size off;
+            autoindex_localtime on;
 EOF
 
     if [ "$WRITABLE" != "true" ]; then
         echo "   - WebDAV 已配置为只读"
-        cat >>/etc/apache2/conf.d/webdav.conf <<EOF
-        
-        # 只读模式：只允许 GET 和基本操作
-        <IfModule mod_dav.c>
-            <LimitExcept GET OPTIONS PROPFIND HEAD>
-                Require user ""
-            </LimitExcept>
-        </IfModule>
+        cat >>/etc/nginx/nginx.conf <<EOF
+            
+            # 只读模式：禁止写操作
+            limit_except GET HEAD OPTIONS PROPFIND {
+                deny all;
+            }
 EOF
     else
         echo "   - WebDAV 已配置为可写"
     fi
 
-    cat >>/etc/apache2/conf.d/webdav.conf <<EOF
-    </Directory>
-    
-    # WebDAV 别名路径
-    Alias /webdav $SHAREPATH
-    <Directory $SHAREPATH>
-        Options Indexes FollowSymLinks
-        AllowOverride None
+    cat >>/etc/nginx/nginx.conf <<EOF
+        }
         
-        <IfModule mod_dav.c>
-            DAV On
-            # WebDAV 锁定数据库
-            DavLockDB /var/run/apache2/DavLock
-        </IfModule>
+        # 错误页面
+        error_page 404 /404.html;
+        error_page 500 502 503 504 /50x.html;
         
-        Auth${AUTH_TYPE} "ShareHub WebDAV"
-        AuthUserFile ${AUTH_FILE}
-        Require valid-user
+        location = /50x.html {
+            root /var/lib/nginx/html;
+        }
+    }
+}
 EOF
 
-    if [ "$WRITABLE" != "true" ]; then
-        cat >>/etc/apache2/conf.d/webdav.conf <<EOF
-        
-        <IfModule mod_dav.c>
-            <LimitExcept GET OPTIONS PROPFIND HEAD>
-                Require user ""
-            </LimitExcept>
-        </IfModule>
-EOF
-    fi
-
-    cat >>/etc/apache2/conf.d/webdav.conf <<EOF
-    </Directory>
-</VirtualHost>
-EOF
-
-    echo "   - WebDAV 配置完成"
+    echo "   - Nginx WebDAV 配置完成"
 }
 
 # 启动所有已启用的服务
@@ -310,6 +296,7 @@ start_services() {
     echo " - SFTP:   sftp://$USERNAME:$PASSWORD@<host>:22"
     echo " - SSH:    ssh $USERNAME@<host> (如果启用)"
     echo " - WebDAV: http://<host>/webdav (用户: $USERNAME)"
+    echo " - Web:    http://<host>/ (文件浏览器)"
     echo " - SMB:    smb://<host>/share"
     if [ "$NFS" == "true" ]; then
         echo " - NFS:    <host>:$SHAREPATH (需要 --privileged 模式)"
@@ -317,8 +304,8 @@ start_services() {
     echo "================================================="
 
     if [ "$WEBDAV" == "true" ]; then
-        echo "[INFO] 主服务 WebDAV 正在前台运行以保持容器存活..."
-        exec /usr/sbin/httpd -D FOREGROUND
+        echo "[INFO] 主服务 Nginx 正在前台运行以保持容器存活..."
+        exec nginx -g "daemon off;"
     else
         echo "[INFO] WebDAV 未启用。使用 'tail -f /dev/null' 保持容器运行。"
         exec tail -f /dev/null
