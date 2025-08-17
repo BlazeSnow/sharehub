@@ -1,8 +1,14 @@
 # Sharehub
 
+> DockerHub链接：<https://hub.docker.com/r/blazesnow/sharehub>
+
+此镜像致力于解决文件共享问题，目前支持FTP、SFTP、WebDav、SMB和NFS共享协议
+
 ```bash
 docker pull blazesnow/sharehub:beta
 ```
+
+`docker-compose.yml`示例如下：
 
 ```yml
 services:
