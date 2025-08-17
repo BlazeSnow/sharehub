@@ -132,8 +132,9 @@ setup_webdav() {
     HASH=$(printf "%s:%s:%s" "$USERNAME" "$REALM" "$PASSWORD" | md5sum | cut -d' ' -f1)
     echo "${USERNAME}:${REALM}:${HASH}" >/etc/apache2/webdav.passwd
 
+    # --- 这里是唯一的修改 ---
+    # 移除了 Listen 80，因为它已经在主 httpd.conf 中被定义了
     cat >/etc/apache2/conf.d/webdav.conf <<EOF
-Listen 80
 DavLockDB /var/run/apache2/DavLock
 <VirtualHost *:80>
     Alias /webdav $SHAREPATH
