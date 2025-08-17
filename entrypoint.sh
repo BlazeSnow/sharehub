@@ -142,20 +142,37 @@ setup_nfs() {
 }
 
 # 配置 WebDAV 服务
+# 配置 WebDAV 服务
 setup_webdav() {
     if [ "$WEBDAV" != "true" ]; then return; fi
     echo "-> 正在配置 WebDAV 服务 (Apache2)..."
 
-    # 检查并加载必要的模块
+    # 检查模块路径并加载必要的模块
     echo "   - 配置 Apache 模块"
+
+    # 找到正确的模块路径
+    MOD_PATH=""
+    if [ -d "/usr/lib/apache2" ]; then
+        MOD_PATH="/usr/lib/apache2"
+    elif [ -d "/usr/libexec/apache2" ]; then
+        MOD_PATH="/usr/libexec/apache2"
+    elif [ -d "/etc/apache2/modules" ]; then
+        MOD_PATH="/etc/apache2/modules"
+    else
+        MOD_PATH="modules"
+    fi
+
+    echo "   - 使用模块路径: $MOD_PATH"
+
+    # 添加必要的模块
     if ! grep -q "LoadModule dav_module" /etc/apache2/httpd.conf; then
-        echo "LoadModule dav_module lib/apache2/mod_dav.so" >>/etc/apache2/httpd.conf
+        echo "LoadModule dav_module ${MOD_PATH}/mod_dav.so" >>/etc/apache2/httpd.conf
     fi
     if ! grep -q "LoadModule dav_fs_module" /etc/apache2/httpd.conf; then
-        echo "LoadModule dav_fs_module lib/apache2/mod_dav_fs.so" >>/etc/apache2/httpd.conf
+        echo "LoadModule dav_fs_module ${MOD_PATH}/mod_dav_fs.so" >>/etc/apache2/httpd.conf
     fi
     if ! grep -q "LoadModule auth_digest_module" /etc/apache2/httpd.conf; then
-        echo "LoadModule auth_digest_module lib/apache2/mod_auth_digest.so" >>/etc/apache2/httpd.conf
+        echo "LoadModule auth_digest_module ${MOD_PATH}/mod_auth_digest.so" >>/etc/apache2/httpd.conf
     fi
 
     echo "   - 为 WebDAV 创建用户凭证"
