@@ -24,8 +24,18 @@ main_setup() {
     chown -R "$USERNAME":"$USERNAME" "$SHAREPATH"
 
     # 创建必要的目录
+    echo "   - 创建必要的服务目录"
     mkdir -p /var/log/samba
     mkdir -p /etc/vsftpd
+    mkdir -p /etc/apache2/conf.d
+    mkdir -p /var/run/apache2
+    mkdir -p /var/www/htdocs
+    mkdir -p /var/lib/nfs/rpc_pipefs
+    mkdir -p /var/lib/nfs/v4recovery
+
+    # 创建 Apache 相关文件
+    touch /etc/apache2/webdav.passwd
+    chmod 666 /etc/apache2/webdav.passwd
 
     if [ "$WRITABLE" == "true" ]; then
         echo "   - 授予共享目录 '写' 权限"
@@ -129,16 +139,24 @@ setup_nfs() {
     echo -n "$SHAREPATH" >/etc/exports
     local nfs_perms=$([ "$WRITABLE" == "true" ] && echo "rw" || echo "ro")
     echo " *(${nfs_perms},sync,no_subtree_check,insecure,no_root_squash)" >>/etc/exports
-
-    # 创建必要的目录
-    mkdir -p /var/lib/nfs/rpc_pipefs
-    mkdir -p /var/lib/nfs/v4recovery
 }
 
 # 配置 WebDAV 服务
 setup_webdav() {
     if [ "$WEBDAV" != "true" ]; then return; fi
     echo "-> 正在配置 WebDAV 服务 (Apache2)..."
+
+    # 检查并加载必要的模块
+    echo "   - 配置 Apache 模块"
+    if ! grep -q "LoadModule dav_module" /etc/apache2/httpd.conf; then
+        echo "LoadModule dav_module lib/apache2/mod_dav.so" >>/etc/apache2/httpd.conf
+    fi
+    if ! grep -q "LoadModule dav_fs_module" /etc/apache2/httpd.conf; then
+        echo "LoadModule dav_fs_module lib/apache2/mod_dav_fs.so" >>/etc/apache2/httpd.conf
+    fi
+    if ! grep -q "LoadModule auth_digest_module" /etc/apache2/httpd.conf; then
+        echo "LoadModule auth_digest_module lib/apache2/mod_auth_digest.so" >>/etc/apache2/httpd.conf
+    fi
 
     echo "   - 为 WebDAV 创建用户凭证"
     local REALM="ShareHub"
