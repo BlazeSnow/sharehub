@@ -138,8 +138,11 @@ setup_webdav() {
         -e '/LoadModule auth_digest_module/s/^#//' /etc/apache2/httpd.conf
 
     echo "   - 为 WebDAV 创建用户凭证"
-    # 使用健壮的 printf 和参数扩展来传递密码
-    printf "%s" "${PASSWORD%$'\r'}" | htdigest -c /etc/apache2/webdav.passwd "ShareHub" "$USERNAME"
+    # ========================== 最终解决方案 ==========================
+    # 使用批处理模式 (-b) 直接通过命令行参数传递密码，
+    # 绕开了 Alpine Linux 上 htdigest 工具从 stdin 读取密码的 bug。
+    htdigest -b -c /etc/apache2/webdav.passwd "ShareHub" "$USERNAME" "$PASSWORD"
+    # ================================================================
 
     cat >/etc/apache2/conf.d/webdav.conf <<EOF
 Listen 80
@@ -183,6 +186,9 @@ start_services() {
     echo "================================================="
 }
 
+# ==============================================================================
+# 脚本主执行流程
+# ==============================================================================
 main_setup
 setup_ftp
 setup_ssh_sftp
@@ -190,6 +196,10 @@ setup_smb
 setup_nfs
 setup_webdav
 start_services
+
+# 等待任何一个后台进程退出
 wait -n
+
+# 如果有进程退出，则脚本结束，容器将停止
 echo "一个关键服务已停止，正在关闭容器..."
 exit 0
