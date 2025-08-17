@@ -4,7 +4,7 @@ RUN apk update \
     && apk add --no-cache bash tzdata shadow \
     vsftpd \
     openssh \
-    apache2 apache2-utils \
+    nginx nginx-mod-http-dav-ext \
     samba \
     nfs-utils rpcbind
 
