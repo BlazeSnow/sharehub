@@ -24,7 +24,6 @@ main_setup() {
     chown -R "$USERNAME":"$USERNAME" "$SHAREPATH"
 
     # 创建必要的目录
-    mkdir -p /var/run/apache2
     mkdir -p /var/log/samba
     mkdir -p /etc/vsftpd
 
@@ -59,12 +58,20 @@ chroot_local_user=YES
 allow_writeable_chroot=YES
 local_enable=YES
 EOF
-    if [ "$WRITABLE" == "true" ]; then echo "write_enable=YES" >>/etc/vsftpd/vsftpd.conf; fi
+    if [ "$WRITABLE" == "true" ]; then
+        echo "write_enable=YES" >>/etc/vsftpd/vsftpd.conf
+    fi
     if [ "$GUEST" == "true" ]; then
         echo "anonymous_enable=YES" >>/etc/vsftpd/vsftpd.conf
         echo "anon_root=$SHAREPATH" >>/etc/vsftpd/vsftpd.conf
         echo "no_anon_password=YES" >>/etc/vsftpd/vsftpd.conf
-    else echo "anonymous_enable=NO" >>/etc/vsftpd/vsftpd.conf; fi
+        if [ "$WRITABLE" == "true" ]; then
+            echo "anon_upload_enable=YES" >>/etc/vsftpd/vsftpd.conf
+            echo "anon_mkdir_write_enable=YES" >>/etc/vsftpd/vsftpd.conf
+        fi
+    else
+        echo "anonymous_enable=NO" >>/etc/vsftpd/vsftpd.conf
+    fi
     echo "$USERNAME" >/etc/vsftpd/user_list
 }
 
@@ -121,7 +128,11 @@ setup_nfs() {
     echo "-> 正在配置 NFS 服务..."
     echo -n "$SHAREPATH" >/etc/exports
     local nfs_perms=$([ "$WRITABLE" == "true" ] && echo "rw" || echo "ro")
-    echo " *(${nfs_perms},sync,no_subtree_check)" >>/etc/exports
+    echo " *(${nfs_perms},sync,no_subtree_check,insecure,no_root_squash)" >>/etc/exports
+
+    # 创建必要的目录
+    mkdir -p /var/lib/nfs/rpc_pipefs
+    mkdir -p /var/lib/nfs/v4recovery
 }
 
 # 配置 WebDAV 服务
@@ -138,7 +149,6 @@ setup_webdav() {
 DavLockDB /var/run/apache2/DavLock
 <VirtualHost *:80>
     DocumentRoot $SHAREPATH
-    Alias /webdav $SHAREPATH
     
     <Directory $SHAREPATH>
         DAV On
@@ -146,37 +156,91 @@ DavLockDB /var/run/apache2/DavLock
         AuthName "ShareHub"
         AuthUserFile /etc/apache2/webdav.passwd
         Require valid-user
-    </Directory>
-</VirtualHost>
+        AllowOverride None
+        Options Indexes FollowSymLinks
 EOF
 
     if [ "$WRITABLE" != "true" ]; then
         echo "   - WebDAV 已配置为只读"
-        sed -i '/Require valid-user/a \    <LimitExcept GET OPTIONS PROPFIND>\n        Require user ""\n    </LimitExcept>' /etc/apache2/conf.d/webdav.conf
+        cat >>/etc/apache2/conf.d/webdav.conf <<EOF
+        <LimitExcept GET OPTIONS PROPFIND>
+            Require user ""
+        </LimitExcept>
+EOF
     else
         echo "   - WebDAV 已配置为可写"
     fi
+
+    cat >>/etc/apache2/conf.d/webdav.conf <<EOF
+    </Directory>
+    
+    Alias /webdav $SHAREPATH
+    <Directory $SHAREPATH>
+        DAV On
+        AuthType Digest
+        AuthName "ShareHub"
+        AuthUserFile /etc/apache2/webdav.passwd
+        Require valid-user
+        AllowOverride None
+        Options Indexes FollowSymLinks
+EOF
+
+    if [ "$WRITABLE" != "true" ]; then
+        cat >>/etc/apache2/conf.d/webdav.conf <<EOF
+        <LimitExcept GET OPTIONS PROPFIND>
+            Require user ""
+        </LimitExcept>
+EOF
+    fi
+
+    cat >>/etc/apache2/conf.d/webdav.conf <<EOF
+    </Directory>
+</VirtualHost>
+EOF
 }
 
 # 启动所有已启用的服务
 start_services() {
     echo "-> 正在启动已启用的服务..."
 
-    [ "$FTP" == "true" ] && /usr/sbin/vsftpd /etc/vsftpd/vsftpd.conf &
-    [ "$SSH" == "true" -o "$SFTP" == "true" ] && /usr/sbin/sshd &
+    if [ "$FTP" == "true" ]; then
+        echo "   - 启动 FTP 服务"
+        /usr/sbin/vsftpd /etc/vsftpd/vsftpd.conf &
+    fi
+
+    if [ "$SSH" == "true" -o "$SFTP" == "true" ]; then
+        echo "   - 启动 SSH/SFTP 服务"
+        /usr/sbin/sshd &
+    fi
+
     if [ "$SMB" == "true" ]; then
+        echo "   - 启动 Samba 服务"
         /usr/sbin/smbd -F --no-process-group &
         /usr/sbin/nmbd -F --no-process-group &
     fi
+
     if [ "$NFS" == "true" ]; then
-        rpcbind -f &
-        sleep 1
-        rpc.mountd -F &
-        rpc.nfsd 8
+        echo "   - 启动 NFS 服务"
+        # 启动 rpcbind
+        /sbin/rpcbind -f &
+        sleep 2
+        # 启动 NFS 相关服务
+        /usr/sbin/rpc.mountd -F &
+        /usr/sbin/rpc.nfsd 8 &
+        # 导出文件系统
+        exportfs -a
     fi
 
     echo "================================================="
     echo " ShareHub 服务已全部启动完毕！"
+    echo "================================================="
+    echo " 连接信息："
+    echo " - FTP:    ftp://$USERNAME:$PASSWORD@<host>:21"
+    echo " - SFTP:   sftp://$USERNAME:$PASSWORD@<host>:22"
+    echo " - SSH:    ssh $USERNAME@<host> (如果启用)"
+    echo " - WebDAV: http://<host>/webdav (用户: $USERNAME)"
+    echo " - SMB:    smb://<host>/share"
+    echo " - NFS:    <host>:$SHAREPATH"
     echo "================================================="
 
     if [ "$WEBDAV" == "true" ]; then
@@ -194,6 +258,14 @@ start_services() {
 
 echo "================================================="
 echo " ShareHub 多功能文件共享服务正在启动..."
+echo "================================================="
+echo " 配置信息："
+echo " - 用户名: $USERNAME"
+echo " - 共享路径: $SHAREPATH"
+echo " - 可写权限: $WRITABLE"
+echo " - 访客模式: $GUEST"
+echo " - 时区: $TZ"
+echo " - 启用服务: FTP=$FTP SSH=$SSH SFTP=$SFTP WebDAV=$WEBDAV SMB=$SMB NFS=$NFS"
 echo "================================================="
 
 if [ "$AGREE" != "true" ]; then
