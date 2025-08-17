@@ -1,36 +1,21 @@
 #!/bin/bash
 set -e
 
-# ==============================================================================
-# 欢迎语和环境检查
-# ==============================================================================
-echo "================================================="
-echo " ShareHub 多功能文件共享服务正在启动..."
-echo "================================================="
+# ... (main_setup, setup_ftp, setup_ssh_sftp, setup_smb, setup_nfs 函数保持不变) ...
+# 为了节省篇幅，这里只列出被修改的 setup_webdav 和完整的脚本结构
 
-if [ "$AGREE" != "true" ]; then
-    echo "错误：你必须设置环境变量 AGREE=true 才能启动此容器。"
-    exit 1
-fi
-
-# ==============================================================================
-# 主要的初始化函数
-# ==============================================================================
 main_setup() {
     echo "-> 正在进行全局初始化..."
     echo "   - 设置时区为: ${TZ:-UTC}"
     ln -snf /usr/share/zoneinfo/${TZ:-UTC} /etc/localtime
     echo "${TZ:-UTC}" >/etc/timezone
-
     echo "   - 创建用户和组: $USERNAME"
     addgroup "$USERNAME"
     adduser -D -G "$USERNAME" -s /bin/bash -h "$SHAREPATH" "$USERNAME"
     echo "$USERNAME:$PASSWORD" | chpasswd
-
     echo "   - 创建共享目录: $SHAREPATH"
     mkdir -p "$SHAREPATH"
     chown -R "$USERNAME":"$USERNAME" "$SHAREPATH"
-
     if [ "$WRITABLE" == "true" ]; then
         echo "   - 授予共享目录 '写' 权限"
         chmod -R 775 "$SHAREPATH"
@@ -39,11 +24,6 @@ main_setup() {
         chmod -R 555 "$SHAREPATH"
     fi
 }
-
-# ==============================================================================
-# 各个服务的配置函数
-# ==============================================================================
-
 setup_ftp() {
     if [ "$FTP" != "true" ]; then return; fi
     echo "-> 正在配置 FTP 服务 (vsftpd)..."
@@ -70,12 +50,9 @@ EOF
         echo "anonymous_enable=YES" >>/etc/vsftpd/vsftpd.conf
         echo "anon_root=$SHAREPATH" >>/etc/vsftpd/vsftpd.conf
         echo "no_anon_password=YES" >>/etc/vsftpd/vsftpd.conf
-    else
-        echo "anonymous_enable=NO" >>/etc/vsftpd/vsftpd.conf
-    fi
+    else echo "anonymous_enable=NO" >>/etc/vsftpd/vsftpd.conf; fi
     echo "$USERNAME" >/etc/vsftpd/user_list
 }
-
 setup_ssh_sftp() {
     if [ "$SSH" != "true" ] && [ "$SFTP" != "true" ]; then return; fi
     echo "-> 正在配置 SSH / SFTP 服务..."
@@ -92,11 +69,8 @@ EOF
     if [ "$SSH" == "true" ]; then
         echo "   - 同时启用 SSH 和 SFTP (禁用 ForceCommand)"
         sed -i "s/ForceCommand internal-sftp/#ForceCommand internal-sftp/" /etc/ssh/sshd_config
-    else
-        echo "   - 仅启用 SFTP (禁用 shell 访问)"
-    fi
+    else echo "   - 仅启用 SFTP (禁用 shell 访问)"; fi
 }
-
 setup_smb() {
     if [ "$SMB" != "true" ]; then return; fi
     echo "-> 正在配置 Samba 服务 (SMB)..."
@@ -121,7 +95,6 @@ setup_smb() {
     valid users = $USERNAME $([ "$GUEST" == "true" ] && echo "nobody")
 EOF
 }
-
 setup_nfs() {
     if [ "$NFS" != "true" ]; then return; fi
     echo "-> 正在配置 NFS 服务..."
@@ -138,12 +111,11 @@ setup_webdav() {
         -e '/LoadModule dav_fs_module/s/^#//' \
         -e '/LoadModule auth_digest_module/s/^#//' /etc/apache2/httpd.conf
 
-    echo "   - 为 WebDAV 创建用户凭证"
-    # ========================== 最终解决方案 (Alpine 兼容版) ==========================
-    # Alpine 的 htdigest 工具不支持 -b 参数，因此我们使用 printf 模拟用户
-    # 两次输入密码（输入+回车，确认+回车）的交互过程。
-    printf "%s\n%s\n" "$PASSWORD" "$PASSWORD" | htdigest -c /etc/apache2/webdav.passwd "ShareHub" "$USERNAME"
-    # =================================================================================
+    echo "   - 为 WebDAV 创建用户凭证 (手动生成，绕过 htdigest)"
+
+    local REALM="ShareHub"
+    HASH=$(printf "%s:%s:%s" "$USERNAME" "$REALM" "$PASSWORD" | md5sum | cut -d' ' -f1)
+    echo "${USERNAME}:${REALM}:${HASH}" >/etc/apache2/webdav.passwd
 
     # 创建 WebDAV 配置文件
     cat >/etc/apache2/conf.d/webdav.conf <<EOF
@@ -160,7 +132,6 @@ DavLockDB /var/run/apache2/DavLock
     </Directory>
 </VirtualHost>
 EOF
-    # 根据 WRITABLE 变量设置只读或可写
     if [ "$WRITABLE" != "true" ]; then
         echo "   - WebDAV 已配置为只读"
         sed -i '/Require valid-user/a \    <LimitExcept GET OPTIONS PROPFIND>\n        Require user ""\n    </LimitExcept>' /etc/apache2/conf.d/webdav.conf
@@ -188,9 +159,14 @@ start_services() {
     echo " ShareHub 服务已全部启动完毕！"
     echo "================================================="
 }
-# ==============================================================================
-# 脚本主执行流程
-# ==============================================================================
+
+echo "================================================="
+echo " ShareHub 多功能文件共享服务正在启动..."
+echo "================================================="
+if [ "$AGREE" != "true" ]; then
+    echo "错误：你必须设置环境变量 AGREE=true 才能启动此容器。"
+    exit 1
+fi
 main_setup
 setup_ftp
 setup_ssh_sftp
@@ -198,10 +174,6 @@ setup_smb
 setup_nfs
 setup_webdav
 start_services
-
-# 等待任何一个后台进程退出，这能让容器保持运行状态
 wait -n
-
-# 如果有进程退出（例如服务崩溃），则脚本结束，容器将优雅地停止
 echo "一个关键服务已停止，正在关闭容器..."
 exit 0
