@@ -146,19 +146,25 @@ setup_webdav() {
     if [ "$WEBDAV" != "true" ]; then return; fi
     echo "-> 正在配置 WebDAV 服务 (Nginx)..."
 
+    echo "   - 检查 WebDAV 模块"
+    # 检查 WebDAV 模块是否可用
+    if [ -f /usr/lib/nginx/modules/ngx_http_dav_ext_module.so ]; then
+        echo "   - 找到 WebDAV 扩展模块"
+        WEBDAV_EXT_AVAILABLE=true
+    else
+        echo "   - WebDAV 扩展模块不可用，使用基本 WebDAV 功能"
+        WEBDAV_EXT_AVAILABLE=false
+    fi
+
     echo "   - 为 WebDAV 创建用户凭证"
-    # 如果 htpasswd 不可用，我们手动创建基本认证文件
+    # 创建基本认证文件
     if command -v htpasswd >/dev/null 2>&1; then
         htpasswd -cb /etc/nginx/webdav.passwd "$USERNAME" "$PASSWORD"
     else
-        # 手动创建基本认证文件（使用 crypt）
-        # 生成随机盐
-        SALT=$(head -c 6 /dev/urandom | base64 | tr -d "=+/" | cut -c1-8)
-        # 使用 openssl 生成密码哈希
+        # 手动创建基本认证文件
         if command -v openssl >/dev/null 2>&1; then
             HASH=$(openssl passwd -apr1 "$PASSWORD")
         else
-            # 如果 openssl 也不可用，使用简单的 crypt
             HASH=$(echo "$PASSWORD" | busybox cryptpw -m sha512)
         fi
         echo "$USERNAME:$HASH" >/etc/nginx/webdav.passwd
@@ -171,6 +177,18 @@ worker_processes auto;
 error_log /var/log/nginx/error.log warn;
 pid /var/run/nginx.pid;
 
+EOF
+
+    # 只有在模块存在时才加载
+    if [ "$WEBDAV_EXT_AVAILABLE" = "true" ]; then
+        cat >>/etc/nginx/nginx.conf <<EOF
+# 加载 WebDAV 扩展模块
+load_module modules/ngx_http_dav_ext_module.so;
+
+EOF
+    fi
+
+    cat >>/etc/nginx/nginx.conf <<EOF
 events {
     worker_connections 1024;
 }
@@ -210,10 +228,21 @@ http {
         location /webdav {
             alias $SHAREPATH;
             
-            # 启用 WebDAV 方法
+            # 基本 WebDAV 方法（nginx 核心支持）
             dav_methods PUT DELETE MKCOL COPY MOVE;
+            
+EOF
+
+    # 只有在扩展模块可用时才添加扩展方法
+    if [ "$WEBDAV_EXT_AVAILABLE" = "true" ]; then
+        cat >>/etc/nginx/nginx.conf <<EOF
+            # 扩展 WebDAV 方法（需要 dav_ext 模块）
             dav_ext_methods PROPFIND PROPPATCH LOCK UNLOCK;
             
+EOF
+    fi
+
+    cat >>/etc/nginx/nginx.conf <<EOF
             # 创建完整路径
             create_full_put_path on;
             
@@ -263,10 +292,19 @@ EOF
     echo "   - 验证认证文件"
     if [ -f /etc/nginx/webdav.passwd ]; then
         echo "   - 认证文件创建成功"
-        # 显示文件内容（隐藏密码哈希）
         echo "   - 用户: $(cut -d: -f1 /etc/nginx/webdav.passwd)"
     else
         echo "   - [错误] 认证文件创建失败"
+    fi
+
+    # 测试 nginx 配置
+    echo "   - 测试 Nginx 配置"
+    if nginx -t 2>/dev/null; then
+        echo "   - Nginx 配置验证成功"
+    else
+        echo "   - [警告] Nginx 配置验证失败，但继续启动"
+        echo "   - 详细错误信息："
+        nginx -t
     fi
 
     echo "   - Nginx WebDAV 配置完成"
