@@ -11,7 +11,7 @@ set -e
 main_setup() {
     echo "-> 正在进行全局初始化..."
     echo "   - 设置时区为: ${TZ:-UTC}"
-    ln -snf /usr/share/zoneinfo/${TZ:-UTC} /etc/localtime
+    ln -snf /usr/share/zoneinfo/"${TZ:-UTC}" /etc/localtime
     echo "${TZ:-UTC}" >/etc/timezone
 
     echo "   - 创建用户和组: $USERNAME"
@@ -27,15 +27,10 @@ main_setup() {
     echo "   - 创建必要的服务目录"
     mkdir -p /var/log/samba
     mkdir -p /etc/vsftpd
-    mkdir -p /etc/apache2/conf.d
     mkdir -p /var/run/apache2
     mkdir -p /var/www/htdocs
     mkdir -p /var/lib/nfs/rpc_pipefs
     mkdir -p /var/lib/nfs/v4recovery
-
-    # 创建 Apache 相关文件
-    touch /etc/apache2/webdav.passwd
-    chmod 666 /etc/apache2/webdav.passwd
 
     if [ "$WRITABLE" == "true" ]; then
         echo "   - 授予共享目录 '写' 权限"
@@ -72,12 +67,16 @@ EOF
         echo "write_enable=YES" >>/etc/vsftpd/vsftpd.conf
     fi
     if [ "$GUEST" == "true" ]; then
-        echo "anonymous_enable=YES" >>/etc/vsftpd/vsftpd.conf
-        echo "anon_root=$SHAREPATH" >>/etc/vsftpd/vsftpd.conf
-        echo "no_anon_password=YES" >>/etc/vsftpd/vsftpd.conf
+        {
+            echo "anonymous_enable=YES"
+            echo "anon_root=$SHAREPATH"
+            echo "no_anon_password=YES"
+        } >>/etc/vsftpd/vsftpd.conf
         if [ "$WRITABLE" == "true" ]; then
-            echo "anon_upload_enable=YES" >>/etc/vsftpd/vsftpd.conf
-            echo "anon_mkdir_write_enable=YES" >>/etc/vsftpd/vsftpd.conf
+            {
+                echo "anon_upload_enable=YES"
+                echo "anon_mkdir_write_enable=YES"
+            } >>/etc/vsftpd/vsftpd.conf
         fi
     else
         echo "anonymous_enable=NO" >>/etc/vsftpd/vsftpd.conf
@@ -137,7 +136,12 @@ setup_nfs() {
     if [ "$NFS" != "true" ]; then return; fi
     echo "-> 正在配置 NFS 服务..."
     echo -n "$SHAREPATH" >/etc/exports
-    local nfs_perms=$([ "$WRITABLE" == "true" ] && echo "rw" || echo "ro")
+    local nfs_perms
+    if [ "$WRITABLE" == "true" ]; then
+        nfs_perms="rw"
+    else
+        nfs_perms="ro"
+    fi
     echo " *(${nfs_perms},sync,no_subtree_check,insecure,no_root_squash)" >>/etc/exports
 }
 
@@ -169,6 +173,9 @@ setup_webdav() {
         fi
         echo "$USERNAME:$HASH" >/etc/nginx/webdav.passwd
     fi
+    
+    # 设置认证文件的安全权限
+    chmod 600 /etc/nginx/webdav.passwd
 
     echo "   - 配置 Nginx WebDAV"
     cat >/etc/nginx/nginx.conf <<EOF
@@ -287,17 +294,6 @@ EOF
     cat >>/etc/nginx/nginx.conf <<EOF
         }
         
-        # 处理 OPTIONS 请求
-        location ~ ^/webdav/.*$ {
-            if (\$request_method = OPTIONS) {
-                add_header Allow "GET, HEAD, POST, PUT, DELETE, OPTIONS, PROPFIND, PROPPATCH, MKCOL, COPY, MOVE, LOCK, UNLOCK";
-                add_header DAV "1, 2";
-                add_header Content-Length 0;
-                add_header Content-Type text/plain;
-                return 200;
-            }
-        }
-        
         # 错误页面
         error_page 404 /404.html;
         error_page 500 502 503 504 /50x.html;
@@ -337,17 +333,36 @@ start_services() {
     if [ "$FTP" == "true" ]; then
         echo "   - 启动 FTP 服务"
         /usr/sbin/vsftpd /etc/vsftpd/vsftpd.conf &
+        FTP_PID=$!
+        sleep 1
+        if ! kill -0 "$FTP_PID" 2>/dev/null; then
+            echo "   [警告] FTP 服务启动失败"
+        fi
     fi
 
-    if [ "$SSH" == "true" -o "$SFTP" == "true" ]; then
+    if [ "$SSH" == "true" ] || [ "$SFTP" == "true" ]; then
         echo "   - 启动 SSH/SFTP 服务"
         /usr/sbin/sshd &
+        SSH_PID=$!
+        sleep 1
+        if ! kill -0 "$SSH_PID" 2>/dev/null; then
+            echo "   [警告] SSH/SFTP 服务启动失败"
+        fi
     fi
 
     if [ "$SMB" == "true" ]; then
         echo "   - 启动 Samba 服务"
         /usr/sbin/smbd -F --no-process-group &
+        SMBD_PID=$!
         /usr/sbin/nmbd -F --no-process-group &
+        NMBD_PID=$!
+        sleep 1
+        if ! kill -0 "$SMBD_PID" 2>/dev/null; then
+            echo "   [警告] Samba smbd 启动失败"
+        fi
+        if ! kill -0 "$NMBD_PID" 2>/dev/null; then
+            echo "   [警告] Samba nmbd 启动失败"
+        fi
     fi
 
     if [ "$NFS" == "true" ]; then
@@ -373,8 +388,8 @@ start_services() {
     echo " ShareHub 服务已全部启动完毕！"
     echo "================================================="
     echo " 连接信息："
-    echo " - FTP:    ftp://$USERNAME:$PASSWORD@<host>:21"
-    echo " - SFTP:   sftp://$USERNAME:$PASSWORD@<host>:22"
+    echo " - FTP:    ftp://$USERNAME:***@<host>:21"
+    echo " - SFTP:   sftp://$USERNAME:***@<host>:22"
     echo " - SSH:    ssh $USERNAME@<host> (如果启用)"
     echo " - WebDAV: http://<host>/webdav (用户: $USERNAME)"
     echo " - Web:    http://<host>/ (文件浏览器)"
