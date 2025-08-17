@@ -2,7 +2,10 @@
 
 > DockerHub链接：<https://hub.docker.com/r/blazesnow/sharehub>
 
-此镜像致力于解决文件共享问题，目前支持FTP、SFTP、WebDav、SMB和NFS共享协议
+此镜像致力于解决文件共享问题，目前支持FTP、SFTP、WebDav、SMB和NFS共享协议。
+
+> [!TIP]
+> 注意：本镜像目前为测试版本。
 
 ```bash
 docker pull blazesnow/sharehub:beta
