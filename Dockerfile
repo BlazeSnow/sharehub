@@ -2,7 +2,11 @@ FROM alpine:3
 
 RUN apk update \
     && apk add --no-cache bash \
-    vsftpd openssh apache2 samba nfs-utils
+    vsftpd \
+    openssh \
+    apache2 apache2-utils \
+    samba \
+    nfs-utils
 
 ENV AGREE true
 ENV USERNAME sharehub
