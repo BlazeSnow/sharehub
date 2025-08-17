@@ -1,12 +1,13 @@
-name: Publish Sharehub
+name: Publish Sharehub Beta
 
 on:
   workflow_dispatch:
-    inputs:
-      tag:
-        description: 'tag'
-        required: true
-        default: ':beta'
+  push:
+    branches:
+    - main
+
+env:
+  tag: :beta
 
 permissions:
   contents: read
@@ -46,5 +47,5 @@ jobs:
         file: Dockerfile
         push: true
         tags: |
-          blazesnow/sharehub${{ inputs.tag }}
-          ghcr.io/blazesnow/sharehub${{ inputs.tag }}
+          blazesnow/sharehub${{ env.tag }}
+          ghcr.io/blazesnow/sharehub${{ env.tag }}
