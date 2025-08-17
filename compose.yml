@@ -5,7 +5,16 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ./data:/sharehub
-    network_mode: host
+    ports:
+      - 20:20
+      - 21:21
+      - 22:22
+      - 80:80
+      - 139:139
+      - 443:443
+      - 445:445
+      - 2049:2049
+      - 21100-21110:21100-21110
     environment:
       - AGREE=true
       - USERNAME=sharehub
