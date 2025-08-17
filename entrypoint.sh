@@ -129,25 +129,7 @@ setup_webdav() {
     if [ "$WEBDAV" != "true" ]; then return; fi
     echo "-> 正在配置 WebDAV 服务 (Apache2)..."
 
-    # 检查并加载必要的模块
-    local apache_modules_dir="/usr/lib/apache2"
-    echo "   - 检查Apache模块目录: $apache_modules_dir"
-
-    if [ -f "$apache_modules_dir/mod_dav.so" ]; then
-        echo "   - 加载DAV相关模块"
-        echo "LoadModule dav_module lib/apache2/mod_dav.so" >>/etc/apache2/httpd.conf
-        echo "LoadModule dav_fs_module lib/apache2/mod_dav_fs.so" >>/etc/apache2/httpd.conf
-        echo "LoadModule auth_digest_module lib/apache2/mod_auth_digest.so" >>/etc/apache2/httpd.conf
-    else
-        echo "   - 错误：找不到Apache DAV模块，尝试查找模块位置..."
-        find /usr -name "mod_dav*.so" 2>/dev/null | head -5
-        echo "   - 尝试使用sed方式启用模块"
-        sed -i -e '/mod_dav.so/s/^#//' \
-            -e '/mod_dav_fs.so/s/^#//' \
-            -e '/mod_auth_digest.so/s/^#//' /etc/apache2/httpd.conf
-    fi
-
-    echo "   - 为 WebDAV 创建用户凭证 (手动生成，绕过 htdigest)"
+    echo "   - 为 WebDAV 创建用户凭证"
     local REALM="ShareHub"
     HASH=$(printf "%s:%s:%s" "$USERNAME" "$REALM" "$PASSWORD" | md5sum | cut -d' ' -f1)
     echo "${USERNAME}:${REALM}:${HASH}" >/etc/apache2/webdav.passwd
@@ -155,7 +137,9 @@ setup_webdav() {
     cat >/etc/apache2/conf.d/webdav.conf <<EOF
 DavLockDB /var/run/apache2/DavLock
 <VirtualHost *:80>
+    DocumentRoot $SHAREPATH
     Alias /webdav $SHAREPATH
+    
     <Directory $SHAREPATH>
         DAV On
         AuthType Digest
@@ -165,6 +149,7 @@ DavLockDB /var/run/apache2/DavLock
     </Directory>
 </VirtualHost>
 EOF
+
     if [ "$WRITABLE" != "true" ]; then
         echo "   - WebDAV 已配置为只读"
         sed -i '/Require valid-user/a \    <LimitExcept GET OPTIONS PROPFIND>\n        Require user ""\n    </LimitExcept>' /etc/apache2/conf.d/webdav.conf
