@@ -19,9 +19,11 @@ ENV WEBDAV true
 ENV SMB true
 ENV NFS true
 
+RUN mkdir -p /sharehub && chmod 777 /sharehub
+
 EXPOSE 20 21 22 80 139 443 445 2049 21100-21110 
 
-COPY ./entrypoint.sh /sharehub/entrypoint.sh
-RUN chmod 700 /sharehub/entrypoint.sh
+COPY ./entrypoint.sh /srv/entrypoint.sh
+RUN chmod 700 /srv/entrypoint.sh
 
-ENTRYPOINT [ "/sharehub/entrypoint.sh" ]
+ENTRYPOINT [ "/srv/entrypoint.sh" ]
