@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
     image: blazesnow/sharehub:beta
     container_name: sharehub
-    restart: no
+    restart: no # unless-stopped
     volumes:
       - ./data:/sharehub
     ports:
@@ -15,13 +15,13 @@ services:
       - 80:80
       - 139:139
       - 443:443
-      - 445:445
+      - 4455:445 # For Windows development
       - 2049:2049
       - 21100-21110:21100-21110
     environment:
       - AGREE=true
       - USERNAME=sharehub
-      - PASSWORD=password
+      - PASSWORD=password # Use .env
       - SHAREPATH=/sharehub
       - WRITABLE=true
       - GUEST=false
