@@ -31,4 +31,8 @@ RUN chmod 700 /srv/entrypoint.sh
 RUN touch /etc/apache2/webdav.passwd \
     && chmod 666 /etc/apache2/webdav.passwd
 
+RUN echo "LoadModule dav_module modules/mod_dav.so" >> /etc/apache2/httpd.conf \
+    && echo "LoadModule dav_fs_module modules/mod_dav_fs.so" >> /etc/apache2/httpd.conf \
+    && echo "LoadModule auth_digest_module modules/mod_auth_digest.so" >> /etc/apache2/httpd.conf
+
 ENTRYPOINT [ "/srv/entrypoint.sh" ]
