@@ -3,6 +3,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: blazesnow/sharehub:beta
+    container_name: sharehub
+    restart: no
     volumes:
       - ./data:/sharehub
     ports:
