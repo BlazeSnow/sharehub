@@ -167,7 +167,7 @@ setup_webdav() {
         else
             HASH=$(echo "$PASSWORD" | busybox cryptpw -m sha512)
         fi
-        echo "$USERNAME:$HASH" > /etc/nginx/webdav.passwd
+        echo "$USERNAME:$HASH" >/etc/nginx/webdav.passwd
     fi
 
     echo "   - 配置 Nginx WebDAV"
@@ -329,7 +329,6 @@ EOF
 
     echo "   - Nginx WebDAV 配置完成"
 }
-
 
 # 启动所有已启用的服务
 start_services() {
