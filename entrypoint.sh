@@ -147,8 +147,22 @@ setup_webdav() {
     echo "-> 正在配置 WebDAV 服务 (Nginx)..."
 
     echo "   - 为 WebDAV 创建用户凭证"
-    # 为 nginx 创建基本认证文件
-    htpasswd -cb /etc/nginx/webdav.passwd "$USERNAME" "$PASSWORD"
+    # 如果 htpasswd 不可用，我们手动创建基本认证文件
+    if command -v htpasswd >/dev/null 2>&1; then
+        htpasswd -cb /etc/nginx/webdav.passwd "$USERNAME" "$PASSWORD"
+    else
+        # 手动创建基本认证文件（使用 crypt）
+        # 生成随机盐
+        SALT=$(head -c 6 /dev/urandom | base64 | tr -d "=+/" | cut -c1-8)
+        # 使用 openssl 生成密码哈希
+        if command -v openssl >/dev/null 2>&1; then
+            HASH=$(openssl passwd -apr1 "$PASSWORD")
+        else
+            # 如果 openssl 也不可用，使用简单的 crypt
+            HASH=$(echo "$PASSWORD" | busybox cryptpw -m sha512)
+        fi
+        echo "$USERNAME:$HASH" >/etc/nginx/webdav.passwd
+    fi
 
     echo "   - 配置 Nginx WebDAV"
     cat >/etc/nginx/nginx.conf <<EOF
@@ -245,6 +259,15 @@ EOF
     }
 }
 EOF
+
+    echo "   - 验证认证文件"
+    if [ -f /etc/nginx/webdav.passwd ]; then
+        echo "   - 认证文件创建成功"
+        # 显示文件内容（隐藏密码哈希）
+        echo "   - 用户: $(cut -d: -f1 /etc/nginx/webdav.passwd)"
+    else
+        echo "   - [错误] 认证文件创建失败"
+    fi
 
     echo "   - Nginx WebDAV 配置完成"
 }
