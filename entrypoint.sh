@@ -1,21 +1,28 @@
 #!/bin/bash
+
+# 脚本在遇到任何错误时立即退出
 set -e
 
-# ... (main_setup, setup_ftp, setup_ssh_sftp, setup_smb, setup_nfs 函数保持不变) ...
-# 为了节省篇幅，这里只列出被修改的 setup_webdav 和完整的脚本结构
+# ==============================================================================
+#  函数定义区域
+# ==============================================================================
 
+# 全局初始化：创建用户、目录、设置权限等
 main_setup() {
     echo "-> 正在进行全局初始化..."
     echo "   - 设置时区为: ${TZ:-UTC}"
     ln -snf /usr/share/zoneinfo/${TZ:-UTC} /etc/localtime
     echo "${TZ:-UTC}" >/etc/timezone
+
     echo "   - 创建用户和组: $USERNAME"
     addgroup "$USERNAME"
     adduser -D -G "$USERNAME" -s /bin/bash -h "$SHAREPATH" "$USERNAME"
     echo "$USERNAME:$PASSWORD" | chpasswd
+
     echo "   - 创建共享目录: $SHAREPATH"
     mkdir -p "$SHAREPATH"
     chown -R "$USERNAME":"$USERNAME" "$SHAREPATH"
+
     if [ "$WRITABLE" == "true" ]; then
         echo "   - 授予共享目录 '写' 权限"
         chmod -R 775 "$SHAREPATH"
@@ -24,6 +31,8 @@ main_setup() {
         chmod -R 555 "$SHAREPATH"
     fi
 }
+
+# 配置 FTP 服务
 setup_ftp() {
     if [ "$FTP" != "true" ]; then return; fi
     echo "-> 正在配置 FTP 服务 (vsftpd)..."
@@ -53,6 +62,8 @@ EOF
     else echo "anonymous_enable=NO" >>/etc/vsftpd/vsftpd.conf; fi
     echo "$USERNAME" >/etc/vsftpd/user_list
 }
+
+# 配置 SSH / SFTP 服务
 setup_ssh_sftp() {
     if [ "$SSH" != "true" ] && [ "$SFTP" != "true" ]; then return; fi
     echo "-> 正在配置 SSH / SFTP 服务..."
@@ -60,17 +71,20 @@ setup_ssh_sftp() {
     cat >>/etc/ssh/sshd_config <<EOF
 
 Match User $USERNAME
-    ForceCommand internal-sftp
     ChrootDirectory %h
     PasswordAuthentication yes
     AllowTcpForwarding no
     X11Forwarding no
 EOF
-    if [ "$SSH" == "true" ]; then
-        echo "   - 同时启用 SSH 和 SFTP (禁用 ForceCommand)"
-        sed -i "s/ForceCommand internal-sftp/#ForceCommand internal-sftp/" /etc/ssh/sshd_config
-    else echo "   - 仅启用 SFTP (禁用 shell 访问)"; fi
+    if [ "$SSH" != "true" ]; then
+        echo "   - 仅启用 SFTP (禁用 shell 访问)"
+        echo "    ForceCommand internal-sftp" >>/etc/ssh/sshd_config
+    else
+        echo "   - 同时启用 SSH 和 SFTP"
+    fi
 }
+
+# 配置 Samba (SMB) 服务
 setup_smb() {
     if [ "$SMB" != "true" ]; then return; fi
     echo "-> 正在配置 Samba 服务 (SMB)..."
@@ -95,6 +109,8 @@ setup_smb() {
     valid users = $USERNAME $([ "$GUEST" == "true" ] && echo "nobody")
 EOF
 }
+
+# 配置 NFS 服务
 setup_nfs() {
     if [ "$NFS" != "true" ]; then return; fi
     echo "-> 正在配置 NFS 服务..."
@@ -103,21 +119,19 @@ setup_nfs() {
     echo " *(${nfs_perms},sync,no_subtree_check)" >>/etc/exports
 }
 
+# 配置 WebDAV 服务
 setup_webdav() {
     if [ "$WEBDAV" != "true" ]; then return; fi
     echo "-> 正在配置 WebDAV 服务 (Apache2)..."
-    # 启用所需的 Apache 模块
     sed -i -e '/LoadModule dav_module/s/^#//' \
         -e '/LoadModule dav_fs_module/s/^#//' \
         -e '/LoadModule auth_digest_module/s/^#//' /etc/apache2/httpd.conf
 
     echo "   - 为 WebDAV 创建用户凭证 (手动生成，绕过 htdigest)"
-
     local REALM="ShareHub"
     HASH=$(printf "%s:%s:%s" "$USERNAME" "$REALM" "$PASSWORD" | md5sum | cut -d' ' -f1)
     echo "${USERNAME}:${REALM}:${HASH}" >/etc/apache2/webdav.passwd
 
-    # 创建 WebDAV 配置文件
     cat >/etc/apache2/conf.d/webdav.conf <<EOF
 Listen 80
 DavLockDB /var/run/apache2/DavLock
@@ -140,8 +154,11 @@ EOF
     fi
 }
 
+# 启动所有已启用的服务
 start_services() {
     echo "-> 正在启动已启用的服务..."
+
+    # 将所有辅助服务启动到后台
     [ "$FTP" == "true" ] && /usr/sbin/vsftpd /etc/vsftpd/vsftpd.conf &
     [ "$SSH" == "true" -o "$SFTP" == "true" ] && /usr/sbin/sshd &
     if [ "$SMB" == "true" ]; then
@@ -152,28 +169,47 @@ start_services() {
         rpcbind -f &
         sleep 1
         rpc.mountd -F &
+        # rpc.nfsd 启动内核线程后会自行退出，这是正常行为
         rpc.nfsd 8
     fi
-    [ "$WEBDAV" == "true" ] && /usr/sbin/httpd -D FOREGROUND &
+
     echo "================================================="
     echo " ShareHub 服务已全部启动完毕！"
     echo "================================================="
+
+    # 将一个核心服务（这里是 WebDAV）在前台运行以保持容器存活
+    if [ "$WEBDAV" == "true" ]; then
+        echo "[INFO] 主服务 WebDAV 正在前台运行以保持容器存活..."
+        # 使用 exec 可让 httpd 进程替换掉当前的 shell 进程，成为容器的 PID 1
+        exec /usr/sbin/httpd -D FOREGROUND
+    else
+        # 如果 WebDAV 未启用，则使用 tail 作为备用方案来保持运行
+        echo "[INFO] WebDAV 未启用。使用 'tail -f /dev/null' 保持容器运行。"
+        exec tail -f /dev/null
+    fi
 }
+
+# ==============================================================================
+#  脚本主执行流程
+# ==============================================================================
 
 echo "================================================="
 echo " ShareHub 多功能文件共享服务正在启动..."
 echo "================================================="
+
+# 检查用户是否同意条款（一个简单的安全措施）
 if [ "$AGREE" != "true" ]; then
     echo "错误：你必须设置环境变量 AGREE=true 才能启动此容器。"
     exit 1
 fi
+
+# 依次执行所有配置函数
 main_setup
 setup_ftp
 setup_ssh_sftp
 setup_smb
 setup_nfs
 setup_webdav
+
+# 启动服务，此函数将接管进程，不会返回
 start_services
-wait -n
-echo "一个关键服务已停止，正在关闭容器..."
-exit 0
