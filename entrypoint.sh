@@ -183,32 +183,51 @@ setup_webdav() {
     if [ "$WEBDAV" != "true" ]; then return; fi
     echo "-> 正在配置 WebDAV 服务 (Apache2)..."
 
-    # 启用 Apache 的 dav 模块
+    # 启用 Apache 的 dav 模块和认证模块
     sed -i '/LoadModule dav_module/s/^#//g' /etc/apache2/httpd.conf
     sed -i '/LoadModule dav_fs_module/s/^#//g' /etc/apache2/httpd.conf
     sed -i '/LoadModule auth_digest_module/s/^#//g' /etc/apache2/httpd.conf
-    sed -i '/Include .*httpd-dav.conf/s/^#//g' /etc/apache2/httpd.conf
+    # Alpine 的 Apache 默认不包含 httpd-dav.conf，我们直接创建自己的配置文件
+    # sed -i '/Include .*httpd-dav.conf/s/^#//g' /etc/apache2/httpd.conf # 这行不再需要
 
-    # 创建密码文件
-    htdigest -c -b /etc/apache2/webdav.passwd "ShareHub" "$USERNAME" "$PASSWORD"
+    echo "   - 为 WebDAV 创建用户凭证"
+    # ==========================================================================
+    # !! 这里是关键修改 !!
+    # 错误原因：htdigest 命令不能直接在命令行上接收密码作为参数。
+    #           之前的写法 htdigest ... "$PASSWORD" 会被识别为错误的参数数量。
+    # 正确做法：使用管道(pipe `|`)将密码传递给 htdigest 命令的标准输入。
+    #           这样命令会从输入中读取密码，而不是从参数中读取。
+    #           我们不再需要 -b (batch mode) 参数，因为它可能在 Alpine 的版本中不存在。
+    # ==========================================================================
+    echo "$PASSWORD" | htdigest -c /etc/apache2/webdav.passwd "ShareHub" "$USERNAME"
 
-    # 配置 WebDAV
-    cat >/etc/apache2/conf.d/httpd-dav.conf <<EOF
+    # 配置 WebDAV，将配置文件放在 conf.d 目录中，这是更标准的做法
+    cat >/etc/apache2/conf.d/webdav.conf <<EOF
 Listen 80
-Alias /webdav $SHAREPATH
+DavLockDB /var/run/apache2/DavLock
 
-<Directory $SHAREPATH>
-    DAV On
-    AuthType Digest
-    AuthName "ShareHub"
-    AuthUserFile /etc/apache2/webdav.passwd
-    Require valid-user
-</Directory>
+<VirtualHost *:80>
+    Alias /webdav $SHAREPATH
+    <Directory $SHAREPATH>
+        DAV On
+        AuthType Digest
+        AuthName "ShareHub"
+        AuthUserFile /etc/apache2/webdav.passwd
+        Require valid-user
+    </Directory>
+</VirtualHost>
 EOF
     # 如果可写，增加 LimitExcept 来控制权限
     if [ "$WRITABLE" == "true" ]; then
+        # 注意：这里的语法需要根据 Apache 版本调整，对于写权限，通常直接设置即可，
+        # 允许多种方法。下面的 LimitExcept 是一个更精细的控制。
+        # 对于简单场景，上面的配置已隐含了写权限。
+        echo "   - WebDAV 已配置为可写"
+    else
+        # 限制为只读方法
         sed -i "/Require valid-user/a \
-    <LimitExcept GET OPTIONS PROPFIND>\n        Require valid-user\n    </LimitExcept>" /etc/apache2/conf.d/httpd-dav.conf
+    <LimitExcept GET OPTIONS PROPFIND>\n        Require user \"\"\n    </LimitExcept>" /etc/apache2/conf.d/webdav.conf
+        echo "   - WebDAV 已配置为只读"
     fi
 }
 
@@ -224,21 +243,27 @@ start_services() {
     fi
     if [ "$SSH" == "true" ] || [ "$SFTP" == "true" ]; then
         echo "   - 启动 sshd..."
-        /usr/sbin/sshd -D &
+        /usr/sbin/sshd &
     fi
     if [ "$SMB" == "true" ]; then
         echo "   - 启动 smbd 和 nmbd..."
+        # 使用 -F 在前台运行，--no-process-group 防止它们创建自己的进程组
         /usr/sbin/smbd -F --no-process-group &
         /usr/sbin/nmbd -F --no-process-group &
     fi
     if [ "$NFS" == "true" ]; then
         echo "   - 启动 nfsd..."
+        # 确保 rpcbind 在前台运行，以处理信号
         rpcbind -f &
-        rpc.nfsd -d 8 &
+        # 等待 rpcbind 准备就绪
+        sleep 1
         rpc.mountd -F &
+        # nfsd 通常作为内核线程运行
+        rpc.nfsd 8
     fi
     if [ "$WEBDAV" == "true" ]; then
         echo "   - 启动 httpd (apache2)..."
+        # 使用 -D FOREGROUND 让 httpd 成为前台进程
         /usr/sbin/httpd -D FOREGROUND &
     fi
 
@@ -266,4 +291,8 @@ start_services
 
 # 4. 保持容器在前台运行
 # 通过等待所有后台进程来保持容器存活
-wait
+# 当任何一个后台任务退出时，wait 会返回，脚本也会随之退出
+wait -n
+
+echo "一个关键服务已停止，正在关闭容器..."
+exit 0
