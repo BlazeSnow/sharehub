@@ -1,0 +1,23 @@
+services:
+  sharehub:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./data:/sharehub
+    network_mode: host
+    environment:
+      - AGREE=true
+      - USERNAME=sharehub
+      - PASSWORD=password
+      - SHAREPATH=/sharehub
+      - WRITABLE=true
+      - GUEST=false
+      - TZ=UTC
+      - FTP=true
+      - FTP_PASSIVE=true
+      - SFTP=true
+      - SSH=true
+      - WEBDAV=true
+      - SMB=true
+      - NFS=true
