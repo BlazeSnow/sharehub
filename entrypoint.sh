@@ -18,9 +18,9 @@ fi
 # ==============================================================================
 main_setup() {
     echo "-> 正在进行全局初始化..."
-    echo "   - 设置时区为: $TZ"
-    ln -snf /usr/share/zoneinfo/$TZ /etc/localtime
-    echo $TZ >/etc/timezone
+    echo "   - 设置时区为: ${TZ:-UTC}"
+    ln -snf /usr/share/zoneinfo/${TZ:-UTC} /etc/localtime
+    echo "${TZ:-UTC}" >/etc/timezone
 
     echo "   - 创建用户和组: $USERNAME"
     addgroup "$USERNAME"
@@ -90,7 +90,7 @@ Match User $USERNAME
     X11Forwarding no
 EOF
     if [ "$SSH" == "true" ]; then
-        echo "   - 同时启用 SSH 和 SFTP"
+        echo "   - 同时启用 SSH 和 SFTP (禁用 ForceCommand)"
         sed -i "s/ForceCommand internal-sftp/#ForceCommand internal-sftp/" /etc/ssh/sshd_config
     else
         echo "   - 仅启用 SFTP (禁用 shell 访问)"
@@ -133,17 +133,17 @@ setup_nfs() {
 setup_webdav() {
     if [ "$WEBDAV" != "true" ]; then return; fi
     echo "-> 正在配置 WebDAV 服务 (Apache2)..."
+    # 启用所需的 Apache 模块
     sed -i -e '/LoadModule dav_module/s/^#//' \
         -e '/LoadModule dav_fs_module/s/^#//' \
         -e '/LoadModule auth_digest_module/s/^#//' /etc/apache2/httpd.conf
 
     echo "   - 为 WebDAV 创建用户凭证"
-    # ========================== 最终解决方案 ==========================
-    # 使用批处理模式 (-b) 直接通过命令行参数传递密码，
-    # 绕开了 Alpine Linux 上 htdigest 工具从 stdin 读取密码的 bug。
+    # 使用批处理模式 (-b) 直接通过命令行参数传递密码。
+    # 这是最简洁、最可靠的方法，适用于现代 Alpine 环境。
     htdigest -b -c /etc/apache2/webdav.passwd "ShareHub" "$USERNAME" "$PASSWORD"
-    # ================================================================
 
+    # 创建 WebDAV 配置文件
     cat >/etc/apache2/conf.d/webdav.conf <<EOF
 Listen 80
 DavLockDB /var/run/apache2/DavLock
@@ -158,9 +158,10 @@ DavLockDB /var/run/apache2/DavLock
     </Directory>
 </VirtualHost>
 EOF
+    # 根据 WRITABLE 变量设置只读或可写
     if [ "$WRITABLE" != "true" ]; then
         echo "   - WebDAV 已配置为只读"
-        sed -i "/Require valid-user/a \    <LimitExcept GET OPTIONS PROPFIND>\n        Require user \"\"\n    </LimitExcept>" /etc/apache2/conf.d/webdav.conf
+        sed -i '/Require valid-user/a \    <LimitExcept GET OPTIONS PROPFIND>\n        Require user ""\n    </LimitExcept>' /etc/apache2/conf.d/webdav.conf
     else
         echo "   - WebDAV 已配置为可写"
     fi
@@ -197,9 +198,9 @@ setup_nfs
 setup_webdav
 start_services
 
-# 等待任何一个后台进程退出
+# 等待任何一个后台进程退出，这能让容器保持运行状态
 wait -n
 
-# 如果有进程退出，则脚本结束，容器将停止
+# 如果有进程退出（例如服务崩溃），则脚本结束，容器将优雅地停止
 echo "一个关键服务已停止，正在关闭容器..."
 exit 0
