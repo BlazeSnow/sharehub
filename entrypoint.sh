@@ -123,17 +123,18 @@ setup_nfs() {
 setup_webdav() {
     if [ "$WEBDAV" != "true" ]; then return; fi
     echo "-> 正在配置 WebDAV 服务 (Apache2)..."
-    sed -i -e '/LoadModule dav_module/s/^#//' \
-        -e '/LoadModule dav_fs_module/s/^#//' \
-        -e '/LoadModule auth_digest_module/s/^#//' /etc/apache2/httpd.conf
+
+    # --- 这里是唯一的修改 ---
+    # 使用更可靠的模块文件名进行匹配，以确保模块被加载
+    sed -i -e '/mod_dav.so/s/^#//' \
+        -e '/mod_dav_fs.so/s/^#//' \
+        -e '/mod_auth_digest.so/s/^#//' /etc/apache2/httpd.conf
 
     echo "   - 为 WebDAV 创建用户凭证 (手动生成，绕过 htdigest)"
     local REALM="ShareHub"
     HASH=$(printf "%s:%s:%s" "$USERNAME" "$REALM" "$PASSWORD" | md5sum | cut -d' ' -f1)
     echo "${USERNAME}:${REALM}:${HASH}" >/etc/apache2/webdav.passwd
 
-    # --- 这里是唯一的修改 ---
-    # 移除了 Listen 80，因为它已经在主 httpd.conf 中被定义了
     cat >/etc/apache2/conf.d/webdav.conf <<EOF
 DavLockDB /var/run/apache2/DavLock
 <VirtualHost *:80>
@@ -159,7 +160,6 @@ EOF
 start_services() {
     echo "-> 正在启动已启用的服务..."
 
-    # 将所有辅助服务启动到后台
     [ "$FTP" == "true" ] && /usr/sbin/vsftpd /etc/vsftpd/vsftpd.conf &
     [ "$SSH" == "true" -o "$SFTP" == "true" ] && /usr/sbin/sshd &
     if [ "$SMB" == "true" ]; then
@@ -170,7 +170,6 @@ start_services() {
         rpcbind -f &
         sleep 1
         rpc.mountd -F &
-        # rpc.nfsd 启动内核线程后会自行退出，这是正常行为
         rpc.nfsd 8
     fi
 
@@ -178,13 +177,10 @@ start_services() {
     echo " ShareHub 服务已全部启动完毕！"
     echo "================================================="
 
-    # 将一个核心服务（这里是 WebDAV）在前台运行以保持容器存活
     if [ "$WEBDAV" == "true" ]; then
         echo "[INFO] 主服务 WebDAV 正在前台运行以保持容器存活..."
-        # 使用 exec 可让 httpd 进程替换掉当前的 shell 进程，成为容器的 PID 1
         exec /usr/sbin/httpd -D FOREGROUND
     else
-        # 如果 WebDAV 未启用，则使用 tail 作为备用方案来保持运行
         echo "[INFO] WebDAV 未启用。使用 'tail -f /dev/null' 保持容器运行。"
         exec tail -f /dev/null
     fi
@@ -198,13 +194,11 @@ echo "================================================="
 echo " ShareHub 多功能文件共享服务正在启动..."
 echo "================================================="
 
-# 检查用户是否同意条款（一个简单的安全措施）
 if [ "$AGREE" != "true" ]; then
     echo "错误：你必须设置环境变量 AGREE=true 才能启动此容器。"
     exit 1
 fi
 
-# 依次执行所有配置函数
 main_setup
 setup_ftp
 setup_ssh_sftp
@@ -212,5 +206,4 @@ setup_smb
 setup_nfs
 setup_webdav
 
-# 启动服务，此函数将接管进程，不会返回
 start_services
