@@ -28,4 +28,7 @@ EXPOSE 20 21 22 80 139 443 445 2049 21100-21110
 COPY ./entrypoint.sh /srv/entrypoint.sh
 RUN chmod 700 /srv/entrypoint.sh
 
+RUN touch /etc/apache2/webdav.passwd \
+    && chmod 666 /etc/apache2/webdav.passwd
+
 ENTRYPOINT [ "/srv/entrypoint.sh" ]
