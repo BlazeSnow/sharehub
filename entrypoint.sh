@@ -139,9 +139,11 @@ setup_webdav() {
         -e '/LoadModule auth_digest_module/s/^#//' /etc/apache2/httpd.conf
 
     echo "   - 为 WebDAV 创建用户凭证"
-    # 使用批处理模式 (-b) 直接通过命令行参数传递密码。
-    # 这是最简洁、最可靠的方法，适用于现代 Alpine 环境。
-    htdigest -b -c /etc/apache2/webdav.passwd "ShareHub" "$USERNAME" "$PASSWORD"
+    # ========================== 最终解决方案 (Alpine 兼容版) ==========================
+    # Alpine 的 htdigest 工具不支持 -b 参数，因此我们使用 printf 模拟用户
+    # 两次输入密码（输入+回车，确认+回车）的交互过程。
+    printf "%s\n%s\n" "$PASSWORD" "$PASSWORD" | htdigest -c /etc/apache2/webdav.passwd "ShareHub" "$USERNAME"
+    # =================================================================================
 
     # 创建 WebDAV 配置文件
     cat >/etc/apache2/conf.d/webdav.conf <<EOF
@@ -186,7 +188,6 @@ start_services() {
     echo " ShareHub 服务已全部启动完毕！"
     echo "================================================="
 }
-
 # ==============================================================================
 # 脚本主执行流程
 # ==============================================================================
