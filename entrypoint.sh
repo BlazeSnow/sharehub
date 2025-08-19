@@ -16,7 +16,7 @@ main_setup() {
 
     echo "创建共享目录：$SHAREPATH"
     mkdir -p "$SHAREPATH"
-    chown -R "$USERNAME":"$USERNAME" "$SHAREPATH"
+    chown -R "$USERNAME":sharehub "$SHAREPATH"
 
     # 创建必要的目录
     echo "创建服务目录"
@@ -297,7 +297,7 @@ start_services() {
         /usr/sbin/vsftpd /etc/vsftpd/vsftpd.conf &
     fi
 
-    if [ "$SSH" == "true" -o "$SFTP" == "true" ]; then
+    if [ "$SSH" = "true" ] || [ "$SFTP" = "true" ]; then
         echo "启动SSH/SFTP"
         /usr/sbin/sshd &
     fi
