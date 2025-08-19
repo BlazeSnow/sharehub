@@ -1,55 +1,44 @@
 #!/bin/bash
 
-# 脚本在遇到任何错误时立即退出
 set -e
 
-# ==============================================================================
-#  函数定义区域
-# ==============================================================================
-
-# 全局初始化：创建用户、目录、设置权限等
+# 全局初始化
 main_setup() {
-    echo "-> 正在进行全局初始化..."
-    echo "   - 设置时区为: ${TZ:-UTC}"
+    echo "正在初始化sharehub"
+    echo "设置时区为：${TZ:-UTC}"
     ln -snf /usr/share/zoneinfo/${TZ:-UTC} /etc/localtime
     echo "${TZ:-UTC}" >/etc/timezone
 
-    echo "   - 创建用户和组: $USERNAME"
-    addgroup "$USERNAME"
-    adduser -D -G "$USERNAME" -s /bin/bash -h "$SHAREPATH" "$USERNAME"
+    echo "创建用户：$USERNAME"
+    addgroup "sharehub"
+    adduser -D -G sharehub -s /bin/bash -h "$SHAREPATH" "$USERNAME"
     echo "$USERNAME:$PASSWORD" | chpasswd
 
-    echo "   - 创建共享目录: $SHAREPATH"
+    echo "创建共享目录：$SHAREPATH"
     mkdir -p "$SHAREPATH"
     chown -R "$USERNAME":"$USERNAME" "$SHAREPATH"
 
     # 创建必要的目录
-    echo "   - 创建必要的服务目录"
+    echo "创建服务目录"
     mkdir -p /var/log/samba
     mkdir -p /etc/vsftpd
-    mkdir -p /etc/apache2/conf.d
-    mkdir -p /var/run/apache2
     mkdir -p /var/www/htdocs
     mkdir -p /var/lib/nfs/rpc_pipefs
     mkdir -p /var/lib/nfs/v4recovery
 
-    # 创建 Apache 相关文件
-    touch /etc/apache2/webdav.passwd
-    chmod 666 /etc/apache2/webdav.passwd
-
     if [ "$WRITABLE" == "true" ]; then
-        echo "   - 授予共享目录 '写' 权限"
+        echo "授予共享目录写权限"
         chmod -R 775 "$SHAREPATH"
     else
-        echo "   - 设置共享目录为 '只读' 权限"
+        echo "设置共享目录为只读权限"
         chmod -R 555 "$SHAREPATH"
     fi
 }
 
-# 配置 FTP 服务
+# 配置FTP
 setup_ftp() {
     if [ "$FTP" != "true" ]; then return; fi
-    echo "-> 正在配置 FTP 服务 (vsftpd)..."
+    echo "正在配置FTP"
     cat >/etc/vsftpd/vsftpd.conf <<EOF
 listen=YES
 listen_ipv6=NO
@@ -85,10 +74,10 @@ EOF
     echo "$USERNAME" >/etc/vsftpd/user_list
 }
 
-# 配置 SSH / SFTP 服务
-setup_ssh_sftp() {
-    if [ "$SSH" != "true" ] && [ "$SFTP" != "true" ]; then return; fi
-    echo "-> 正在配置 SSH / SFTP 服务..."
+# 配置SFTP
+setup_sftp() {
+    if [ "$SFTP" != "true" ]; then return; fi
+    echo "正在配置SFTP"
     ssh-keygen -A
     cat >>/etc/ssh/sshd_config <<EOF
 
@@ -99,17 +88,17 @@ Match User $USERNAME
     X11Forwarding no
 EOF
     if [ "$SSH" != "true" ]; then
-        echo "   - 仅启用 SFTP (禁用 shell 访问)"
+        echo "仅启用SFTP"
         echo "    ForceCommand internal-sftp" >>/etc/ssh/sshd_config
     else
-        echo "   - 同时启用 SSH 和 SFTP"
+        echo "同时启用SSH和SFTP"
     fi
 }
 
-# 配置 Samba (SMB) 服务
+# 配置SMB
 setup_smb() {
     if [ "$SMB" != "true" ]; then return; fi
-    echo "-> 正在配置 Samba 服务 (SMB)..."
+    echo "正在配置SMB"
     (
         echo "$PASSWORD"
         echo "$PASSWORD"
@@ -132,31 +121,26 @@ setup_smb() {
 EOF
 }
 
-# 配置 NFS 服务
+# 配置NFS
 setup_nfs() {
     if [ "$NFS" != "true" ]; then return; fi
-    echo "-> 正在配置 NFS 服务..."
+    echo "正在配置NFS"
     echo -n "$SHAREPATH" >/etc/exports
     local nfs_perms=$([ "$WRITABLE" == "true" ] && echo "rw" || echo "ro")
     echo " *(${nfs_perms},sync,no_subtree_check,insecure,no_root_squash)" >>/etc/exports
 }
 
-# 配置 WebDAV 服务
+# 配置WebDAV
 setup_webdav() {
     if [ "$WEBDAV" != "true" ]; then return; fi
-    echo "-> 正在配置 WebDAV 服务 (Nginx)..."
+    echo "正在配置WebDAV"
 
-    echo "   - 检查 WebDAV 模块"
-    # 检查 WebDAV 模块是否可用
     if [ -f /usr/lib/nginx/modules/ngx_http_dav_ext_module.so ]; then
-        echo "   - 找到 WebDAV 扩展模块"
         WEBDAV_EXT_AVAILABLE=true
     else
-        echo "   - WebDAV 扩展模块不可用，使用基本 WebDAV 功能"
         WEBDAV_EXT_AVAILABLE=false
     fi
 
-    echo "   - 为 WebDAV 创建用户凭证"
     # 创建基本认证文件
     if command -v htpasswd >/dev/null 2>&1; then
         htpasswd -cb /etc/nginx/webdav.passwd "$USERNAME" "$PASSWORD"
@@ -170,7 +154,6 @@ setup_webdav() {
         echo "$USERNAME:$HASH" >/etc/nginx/webdav.passwd
     fi
 
-    echo "   - 配置 Nginx WebDAV"
     cat >/etc/nginx/nginx.conf <<EOF
 user nginx;
 worker_processes auto;
@@ -179,7 +162,6 @@ pid /var/run/nginx.pid;
 
 EOF
 
-    # 只有在模块存在时才加载
     if [ "$WEBDAV_EXT_AVAILABLE" = "true" ]; then
         cat >>/etc/nginx/nginx.conf <<EOF
 # 加载 WebDAV 扩展模块
@@ -233,7 +215,6 @@ http {
             
 EOF
 
-    # 只有在扩展模块可用时才添加扩展方法，并使用正确的语法
     if [ "$WEBDAV_EXT_AVAILABLE" = "true" ]; then
         cat >>/etc/nginx/nginx.conf <<EOF
             # 扩展 WebDAV 方法（需要 dav_ext 模块）
@@ -272,7 +253,6 @@ EOF
 EOF
 
     if [ "$WRITABLE" != "true" ]; then
-        echo "   - WebDAV 已配置为只读"
         cat >>/etc/nginx/nginx.conf <<EOF
             
             # 只读模式：禁止写操作
@@ -280,8 +260,6 @@ EOF
                 deny all;
             }
 EOF
-    else
-        echo "   - WebDAV 已配置为可写"
     fi
 
     cat >>/etc/nginx/nginx.conf <<EOF
@@ -308,94 +286,59 @@ EOF
     }
 }
 EOF
-
-    echo "   - 验证认证文件"
-    if [ -f /etc/nginx/webdav.passwd ]; then
-        echo "   - 认证文件创建成功"
-        echo "   - 用户: $(cut -d: -f1 /etc/nginx/webdav.passwd)"
-    else
-        echo "   - [错误] 认证文件创建失败"
-    fi
-
-    # 测试 nginx 配置
-    echo "   - 测试 Nginx 配置"
-    if nginx -t 2>/dev/null; then
-        echo "   - Nginx 配置验证成功"
-    else
-        echo "   - [警告] Nginx 配置验证失败，但继续启动"
-        echo "   - 详细错误信息："
-        nginx -t
-    fi
-
-    echo "   - Nginx WebDAV 配置完成"
 }
 
 # 启动所有已启用的服务
 start_services() {
-    echo "-> 正在启动已启用的服务..."
+    echo "正在启动已启用的服务"
 
     if [ "$FTP" == "true" ]; then
-        echo "   - 启动 FTP 服务"
+        echo "启动FTP"
         /usr/sbin/vsftpd /etc/vsftpd/vsftpd.conf &
     fi
 
     if [ "$SSH" == "true" -o "$SFTP" == "true" ]; then
-        echo "   - 启动 SSH/SFTP 服务"
+        echo "启动SSH/SFTP"
         /usr/sbin/sshd &
     fi
 
     if [ "$SMB" == "true" ]; then
-        echo "   - 启动 Samba 服务"
+        echo "启动SMB"
         /usr/sbin/smbd -F --no-process-group &
         /usr/sbin/nmbd -F --no-process-group &
     fi
 
     if [ "$NFS" == "true" ]; then
-        echo "   - 启动 NFS 服务"
+        echo "启动NFS"
         # 启动 rpcbind
         /sbin/rpcbind -f &
         sleep 2
         # 启动 NFS 相关服务
         /usr/sbin/rpc.mountd -F &
         /usr/sbin/rpc.nfsd 8 &
-        # 尝试导出文件系统，忽略错误
-        echo "   - 尝试导出 NFS 文件系统..."
-        if ! exportfs -a 2>/dev/null; then
-            echo "   [警告] NFS 导出失败，这在容器环境中是正常的"
-            echo "   [提示] 请确保容器运行时使用 --privileged 参数或适当的 capabilities"
-        fi
+        exportfs -a 2>/dev/null
     fi
 
-    # 添加一个小延迟确保所有服务都已启动
     sleep 3
 
     echo "================================================="
-    echo " ShareHub 服务已全部启动完毕！"
+    echo "ShareHub服务已全部启动！"
     echo "================================================="
     echo " 连接信息："
-    echo " - FTP:    ftp://$USERNAME:$PASSWORD@<host>:21"
-    echo " - SFTP:   sftp://$USERNAME:$PASSWORD@<host>:22"
-    echo " - SSH:    ssh $USERNAME@<host> (如果启用)"
-    echo " - WebDAV: http://<host>/webdav (用户: $USERNAME)"
-    echo " - Web:    http://<host>/ (文件浏览器)"
-    echo " - SMB:    smb://<host>/share"
-    if [ "$NFS" == "true" ]; then
-        echo " - NFS:    <host>:$SHAREPATH (需要 --privileged 模式)"
-    fi
+    echo "ftp://$USERNAME:$PASSWORD@<host>:21"
+    echo "sftp://$USERNAME:$PASSWORD@<host>:22"
+    echo "ssh $USERNAME@<host>"
+    echo "http://<host>/webdav"
+    echo "smb://<host>/share"
+    echo "<host>:$SHAREPATH"
     echo "================================================="
 
     if [ "$WEBDAV" == "true" ]; then
-        echo "[INFO] 主服务 Nginx 正在前台运行以保持容器存活..."
         exec nginx -g "daemon off;"
     else
-        echo "[INFO] WebDAV 未启用。使用 'tail -f /dev/null' 保持容器运行。"
         exec tail -f /dev/null
     fi
 }
-
-# ==============================================================================
-#  脚本主执行流程
-# ==============================================================================
 
 echo "================================================="
 echo " ShareHub 多功能文件共享服务正在启动..."
