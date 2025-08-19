@@ -359,7 +359,7 @@ fi
 
 main_setup
 setup_ftp
-setup_ssh_sftp
+setup_sftp
 setup_smb
 setup_nfs
 setup_webdav
