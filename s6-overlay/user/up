@@ -103,7 +103,7 @@ echo "正在配置 NFS 服务"
 
 echo -n "$SHAREPATH" >/etc/exports
 
-local nfs_perms=$([ "$WRITABLE" == "true" ] && echo "rw" || echo "ro")
+nfs_perms=$([ "$WRITABLE" == "true" ] && echo "rw" || echo "ro")
 
 echo " *(${nfs_perms},sync,no_subtree_check,insecure,no_root_squash)" >>/etc/exports
 
