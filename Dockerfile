@@ -12,9 +12,11 @@ RUN apk update \
     && apk add --no-cache bash tzdata shadow \
     vsftpd \
     openssh \
-    caddy \
     samba \
     nfs-utils rpcbind
+
+COPY --from=builder /build/caddy /usr/bin/caddy
+RUN chmod +x /usr/bin/caddy
 
 ARG S6_OVERLAY_VERSION=3.2.1.0
 ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz /tmp
