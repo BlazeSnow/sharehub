@@ -1,3 +1,11 @@
+FROM golang:alpine AS builder
+
+RUN go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
+
+WORKDIR /build
+
+RUN xcaddy build --with github.com/mholt/caddy-webdav
+
 FROM alpine:3.22.1
 
 RUN apk update \
