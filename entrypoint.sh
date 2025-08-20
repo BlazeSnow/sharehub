@@ -119,6 +119,9 @@ echo "$USERNAME" >/etc/vsftpd/user_list
 
 echo "正在配置 SFTP 服务"
 
+rm -f /etc/ssh/sshd_config
+touch /etc/ssh/sshd_config
+
 ssh-keygen -A 2>/dev/null || true
 
 cat >>/etc/ssh/sshd_config <<EOF
@@ -142,6 +145,7 @@ echo "正在配置 WebDAV 服务"
 PASSWORD_HASH=$(caddy hash-password --plaintext "$PASSWORD" 2>/dev/null || echo "$PASSWORD")
 
 mkdir -p /etc/caddy
+rm -f /etc/caddy/Caddyfile
 touch /etc/caddy/Caddyfile
 
 if [ "$WRITABLE" = "false" ]; then
@@ -183,6 +187,9 @@ chown -R caddy:caddy /var/log/caddy 2>/dev/null || true
 
 echo "正在配置 SMB 服务"
 
+rm -f /etc/samba/smb.conf
+touch /etc/samba/smb.conf
+
 (
     echo "$PASSWORD"
     echo "$PASSWORD"
@@ -209,6 +216,9 @@ EOF
 # ------------NFS------------
 
 echo "正在配置 NFS 服务"
+
+rm -f /etc/exports
+touch /etc/exports
 
 echo -n "$SHAREPATH" >/etc/exports
 
