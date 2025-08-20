@@ -25,7 +25,6 @@ local_root=$SHAREPATH
 chroot_local_user=YES
 allow_writeable_chroot=YES
 seccomp_sandbox=NO
-tcp_wrappers=YES
 hide_ids=YES
 use_localtime=YES
 EOF
