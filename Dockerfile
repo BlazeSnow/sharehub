@@ -47,4 +47,7 @@ EXPOSE 20 21 22 80 139 443 445 2049 21100-21110
 COPY entrypoint.sh /srv/entrypoint.sh
 RUN chmod +x /srv/entrypoint.sh
 
+COPY ./init/ /srv/init/
+RUN chmod +x /srv/init/*.sh
+
 ENTRYPOINT [ "/srv/entrypoint.sh" ]
