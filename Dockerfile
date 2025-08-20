@@ -22,6 +22,17 @@ RUN echo "oneshot" > /etc/s6-overlay/s6-rc.d/sharehub/type \
     && echo "longrun" > /etc/s6-overlay/s6-rc.d/smb/type \
     && echo "longrun" > /etc/s6-overlay/s6-rc.d/nfs/type
 
+RUN mkdir -p /etc/s6-overlay/s6-rc.d/ftp/dependencies.d \
+    && mkdir -p /etc/s6-overlay/s6-rc.d/sftp/dependencies.d \
+    && mkdir -p /etc/s6-overlay/s6-rc.d/webdav/dependencies.d \
+    && mkdir -p /etc/s6-overlay/s6-rc.d/smb/dependencies.d \
+    && mkdir -p /etc/s6-overlay/s6-rc.d/nfs/dependencies.d \
+    && touch /etc/s6-overlay/s6-rc.d/ftp/dependencies.d/sharehub \
+    && touch /etc/s6-overlay/s6-rc.d/sftp/dependencies.d/sharehub \
+    && touch /etc/s6-overlay/s6-rc.d/webdav/dependencies.d/sharehub \
+    && touch /etc/s6-overlay/s6-rc.d/smb/dependencies.d/sharehub \
+    && touch /etc/s6-overlay/s6-rc.d/nfs/dependencies.d/sharehub
+
 ENV AGREE=true
 ENV USERNAME=sharehub
 ENV PASSWORD=password
