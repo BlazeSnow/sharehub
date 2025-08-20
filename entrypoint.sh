@@ -61,6 +61,161 @@ else
     chmod -R 555 "$SHAREPATH"
 fi
 
+# 编辑服务配置文件
+
+# ------------FTP------------
+
+echo "正在配置 FTP 服务"
+
+mkdir -p /etc/vsftpd
+rm -f /etc/vsftpd/vsftpd.conf
+touch /etc/vsftpd/vsftpd.conf
+
+cat >/etc/vsftpd/vsftpd.conf <<EOF
+# 基础配置
+listen=YES
+listen_ipv6=NO
+anonymous_enable=$([ "$GUEST" == "true" ] && echo "YES" || echo "NO")
+local_enable=YES
+dirmessage_enable=YES
+use_localtime=YES
+xferlog_enable=YES
+connect_from_port_20=YES
+
+# 用户配置
+userlist_enable=YES
+userlist_file=/etc/vsftpd/user_list
+userlist_deny=NO
+local_root=$SHAREPATH
+
+# chroot 配置
+chroot_local_user=YES
+allow_writeable_chroot=YES
+write_enable=$([ "$WRITABLE" == "true" ] && echo "YES" || echo "NO")
+port_enable=YES
+pasv_enable=$([ "$FTP_PASSIVE" == "true" ] && echo "YES" || echo "NO")
+seccomp_sandbox=NO
+hide_ids=YES
+
+# 修复常见连接问题
+tcp_wrappers=NO
+EOF
+
+if [ "$FTP_PASSIVE" == "true" ]; then
+    cat >>/etc/vsftpd/vsftpd.conf <<EOF
+pasv_min_port=21100
+pasv_max_port=21110
+pasv_address=$FTP_PASSIVE_IP
+pasv_addr_resolve=NO
+pasv_promiscuous=YES
+EOF
+fi
+
+# 创建用户列表
+touch /etc/vsftpd/user_list
+echo "$USERNAME" >/etc/vsftpd/user_list
+
+# ------------SFTP------------
+
+echo "正在配置 SFTP 服务"
+
+ssh-keygen -A 2>/dev/null || true
+
+cat >>/etc/ssh/sshd_config <<EOF
+
+# ShareHub SFTP Configuration
+Match User $USERNAME
+    ChrootDirectory %h
+    PasswordAuthentication yes
+    AllowTcpForwarding no
+    X11Forwarding no
+EOF
+
+if [ "$SSH" != "true" ]; then
+    echo "    ForceCommand internal-sftp" >>/etc/ssh/sshd_config
+fi
+
+# ------------WebDAV------------
+
+echo "正在配置 WebDAV 服务"
+
+PASSWORD_HASH=$(caddy hash-password --plaintext "$PASSWORD" 2>/dev/null || echo "$PASSWORD")
+
+mkdir -p /etc/caddy
+touch /etc/caddy/Caddyfile
+
+if [ "$WRITABLE" = "false" ]; then
+    cat >/etc/caddy/Caddyfile <<EOF
+{
+    order webdav before file_server
+}
+
+:80 {
+    root * $SHAREPATH
+    
+    @readonly_methods method GET HEAD OPTIONS PROPFIND
+    
+    route {
+        webdav @readonly_methods
+        file_server browse
+        respond * "WebDAV is read-only" 405
+    }
+}
+EOF
+else
+    cat >/etc/caddy/Caddyfile <<EOF
+{
+    order webdav before file_server
+}
+
+:80 {
+    root * $SHAREPATH
+    webdav
+    file_server browse
+}
+EOF
+fi
+
+mkdir -p /var/log/caddy
+chown -R caddy:caddy /var/log/caddy 2>/dev/null || true
+
+# ------------SMB------------
+
+echo "正在配置 SMB 服务"
+
+(
+    echo "$PASSWORD"
+    echo "$PASSWORD"
+) | smbpasswd -a -s "$USERNAME" 2>/dev/null || true
+
+cat >/etc/samba/smb.conf <<EOF
+[global]
+    workgroup = WORKGROUP
+    server string = ShareHub Samba Server
+    security = user
+    map to guest = bad user
+    log file = /var/log/samba/log.%m
+    max log size = 50
+    
+[share]
+    path = $SHAREPATH
+    browseable = yes
+    guest ok = $([ "$GUEST" == "true" ] && echo "yes" || echo "no")
+    read only = $([ "$WRITABLE" == "true" ] && echo "no" || echo "yes")
+    writable = $([ "$WRITABLE" == "true" ] && echo "yes" || echo "no")
+    valid users = $USERNAME $([ "$GUEST" == "true" ] && echo "nobody")
+EOF
+
+# ------------NFS------------
+
+echo "正在配置 NFS 服务"
+
+echo -n "$SHAREPATH" >/etc/exports
+
+nfs_perms=$([ "$WRITABLE" == "true" ] && echo "rw" || echo "ro")
+
+echo " *(${nfs_perms},sync,no_subtree_check,insecure,no_root_squash)" >>/etc/exports
+
 # 启用服务
 mkdir -p /etc/s6-overlay/s6-rc.d/user/contents.d
 
