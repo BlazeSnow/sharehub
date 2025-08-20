@@ -22,8 +22,8 @@ services:
       FTP: true
       FTP_PASSIVE: true
       FTP_PASSIVE_IP: 192.168.3.3
-      SFTP: false
-      SSH: false
-      WEBDAV: false
-      SMB: false
-      NFS: false
+      SFTP: true
+      SSH: true
+      WEBDAV: true
+      SMB: true
+      NFS: true
