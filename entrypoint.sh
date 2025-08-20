@@ -19,15 +19,19 @@ if [ "$AGREE" != "true" ]; then
 fi
 
 echo "================================================="
-echo " ShareHub 多功能文件共享服务正在初始化..."
+echo "         欢迎使用ShareHub"
 echo "================================================="
-echo " 配置信息："
-echo " - 用户名: $USERNAME"
-echo " - 共享路径: $SHAREPATH"
-echo " - 可写权限: $WRITABLE"
-echo " - 访客模式: $GUEST"
-echo " - 时区: $TZ"
-echo " - 启用服务: FTP=$FTP SSH=$SSH SFTP=$SFTP WebDAV=$WEBDAV SMB=$SMB NFS=$NFS"
+echo "用户名：$USERNAME"
+echo "共享路径：$SHAREPATH"
+echo "可写权限：$WRITABLE"
+echo "访客模式：$GUEST"
+echo "时区：$TZ"
+echo "FTP：$FTP"
+echo "SSH：$SSH"
+echo "SFTP：$SFTP"
+echo "WebDAV：$WEBDAV"
+echo "SMB：$SMB"
+echo "NFS：$NFS"
 echo "================================================="
 
 # 设定时区
