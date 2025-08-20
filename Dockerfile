@@ -25,7 +25,8 @@ ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLA
 RUN tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz
 RUN rm -f /tmp/s6-overlay-*.tar.xz
 
-COPY /s6-overlay/ /etc/s6-overlay/s6-rc.d/
+COPY /s6-rc.d/ /etc/s6-overlay/s6-rc.d/
+COPY /cont-init.d/ /etc/s6-overlay/scripts/cont-init.d/
 
 ENV AGREE=true
 ENV USERNAME=sharehub
@@ -44,10 +45,4 @@ ENV NFS=true
 
 EXPOSE 20 21 22 80 139 443 445 2049 21100-21110
 
-COPY entrypoint.sh /srv/entrypoint.sh
-RUN chmod +x /srv/entrypoint.sh
-
-COPY ./init/ /srv/init/
-RUN chmod +x /srv/init/*.sh
-
-ENTRYPOINT [ "/srv/entrypoint.sh" ]
+ENTRYPOINT [ "/init" ]
