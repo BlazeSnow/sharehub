@@ -1,17 +1,19 @@
 #!/bin/bash
 
-USERNAME=${USERNAME:-sharehub}
-PASSWORD=${PASSWORD:-password}
-SHAREPATH=${SHAREPATH:-/sharehub}
-WRITABLE=${WRITABLE:-true}
-GUEST=${GUEST:-false}
-TZ=${TZ:-UTC}
-FTP=${FTP:-true}
-SSH=${SSH:-false}
-SFTP=${SFTP:-true}
-WEBDAV=${WEBDAV:-true}
-SMB=${SMB:-true}
-NFS=${NFS:-true}
+USERNAME=${USERNAME}
+PASSWORD=${PASSWORD}
+SHAREPATH=${SHAREPATH}
+WRITABLE=${WRITABLE}
+GUEST=${GUEST}
+TZ=${TZ}
+FTP=${FTP}
+FTP_PASSIVE=${FTP_PASSIVE}
+FTP_PASSIVE_IP=${FTP_PASSIVE_IP}
+SSH=${SSH}
+SFTP=${SFTP}
+WEBDAV=${WEBDAV}
+SMB=${SMB}
+NFS=${NFS}
 
 if [ "$AGREE" != "true" ]; then
     echo "错误：你必须设置环境变量 AGREE=true 才能启动此容器。"
@@ -64,6 +66,10 @@ mkdir -p /etc/s6-overlay/s6-rc.d/user/contents.d
 
 if [ "$FTP" = "true" ]; then
     touch /etc/s6-overlay/s6-rc.d/user/contents.d/ftp
+    for var in USERNAME PASSWORD SHAREPATH WRITABLE GUEST TZ FTP_PASSIVE FTP_PASSIVE_IP; do
+        val="$(printenv "$var")"
+        [ -n "$val" ] && echo "$val" >"/etc/s6-overlay/s6-rc.d/ftp/env/$var"
+    done
 fi
 
 if [ "$SFTP" = "true" ] || [ "$SSH" = "true" ]; then
