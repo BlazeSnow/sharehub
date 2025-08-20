@@ -1,19 +1,19 @@
 #!/bin/bash
 
-USERNAME=${USERNAME}
-PASSWORD=${PASSWORD}
-SHAREPATH=${SHAREPATH}
-WRITABLE=${WRITABLE}
-GUEST=${GUEST}
-TZ=${TZ}
-FTP=${FTP}
-FTP_PASSIVE=${FTP_PASSIVE}
-FTP_PASSIVE_IP=${FTP_PASSIVE_IP}
-SSH=${SSH}
-SFTP=${SFTP}
-WEBDAV=${WEBDAV}
-SMB=${SMB}
-NFS=${NFS}
+USERNAME=${USERNAME:-"sharehub"}
+PASSWORD=${PASSWORD:-"password"}
+SHAREPATH=${SHAREPATH:-"/sharehub"}
+WRITABLE=${WRITABLE:-"true"}
+GUEST=${GUEST:-"false"}
+TZ=${TZ:-"UTC"}
+FTP=${FTP:-"true"}
+FTP_PASSIVE=${FTP_PASSIVE:-"false"}
+FTP_PASSIVE_IP=${FTP_PASSIVE_IP:-"0.0.0.0"}
+SSH=${SSH:-"false"}
+SFTP=${SFTP:-"true"}
+WEBDAV=${WEBDAV:-"true"}
+SMB=${SMB:-"true"}
+NFS=${NFS:-"true"}
 
 if [ "$AGREE" != "true" ]; then
     echo "错误：你必须设置环境变量 AGREE=true 才能启动此容器。"
