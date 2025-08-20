@@ -1,5 +1,20 @@
 #!/bin/bash
 
+USERNAME=${USERNAME}
+PASSWORD=${PASSWORD}
+SHAREPATH=${SHAREPATH}
+WRITABLE=${WRITABLE}
+GUEST=${GUEST}
+TZ=${TZ}
+FTP=${FTP}
+FTP_PASSIVE=${FTP_PASSIVE}
+FTP_PASSIVE_IP=${FTP_PASSIVE_IP}
+SSH=${SSH}
+SFTP=${SFTP}
+WEBDAV=${WEBDAV}
+SMB=${SMB}
+NFS=${NFS}
+
 echo "正在配置 FTP 服务"
 
 mkdir -p /etc/vsftpd
@@ -10,7 +25,7 @@ cat >/etc/vsftpd/vsftpd.conf <<EOF
 # 基础配置
 listen=YES
 listen_ipv6=NO
-anonymous_enable=$([ "${GUEST}" == "true" ] && echo "YES" || echo "NO")
+anonymous_enable=$([ $GUEST == true ] && echo "YES" || echo "NO")
 local_enable=YES
 dirmessage_enable=YES
 use_localtime=YES
@@ -21,17 +36,17 @@ connect_from_port_20=YES
 userlist_enable=YES
 userlist_file=/etc/vsftpd/user_list
 userlist_deny=NO
-local_root=${SHAREPATH}
+local_root=$SHAREPATH
 
 # chroot 配置
 chroot_local_user=YES
 allow_writeable_chroot=YES
-write_enable=$([ "${WRITABLE}" == "true" ] && echo "YES" || echo "NO")
+write_enable=$([ $WRITABLE == true ] && echo "YES" || echo "NO")
 port_enable=YES
 pasv_enable=YES
 pasv_min_port=21100
 pasv_max_port=21110
-pasv_address=${FTP_PASSIVE_IP}
+pasv_address=$FTP_PASSIVE_IP
 seccomp_sandbox=NO
 hide_ids=YES
 
