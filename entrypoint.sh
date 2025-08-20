@@ -230,27 +230,22 @@ echo " *(${nfs_perms},sync,no_subtree_check,insecure,no_root_squash)" >>/etc/exp
 mkdir -p /etc/s6-overlay/s6-rc.d/user/contents.d
 
 if [ "$FTP" = "true" ]; then
-    /srv/init/ftp.sh
     touch /etc/s6-overlay/s6-rc.d/user/contents.d/ftp
 fi
 
 if [ "$SFTP" = "true" ] || [ "$SSH" = "true" ]; then
-    /srv/init/sftp.sh
     touch /etc/s6-overlay/s6-rc.d/user/contents.d/sftp
 fi
 
 if [ "$WEBDAV" = "true" ]; then
-    /srv/init/webdav.sh
     touch /etc/s6-overlay/s6-rc.d/user/contents.d/webdav
 fi
 
 if [ "$SMB" = "true" ]; then
-    /srv/init/smb.sh
     touch /etc/s6-overlay/s6-rc.d/user/contents.d/smb
 fi
 
 if [ "$NFS" = "true" ]; then
-    /srv/init/nfs.sh
     touch /etc/s6-overlay/s6-rc.d/user/contents.d/nfs-bundle
 fi
 
