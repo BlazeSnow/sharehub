@@ -5,17 +5,12 @@ PASSWORD=${PASSWORD:-password}
 SHAREPATH=${SHAREPATH:-/sharehub}
 WRITABLE=${WRITABLE:-true}
 GUEST=${GUEST:-false}
-TZ=${TZ:-UTC}
-FTP=${FTP:-true}
 SSH=${SSH:-false}
-SFTP=${SFTP:-true}
-WEBDAV=${WEBDAV:-true}
-SMB=${SMB:-true}
-NFS=${NFS:-true}
 
 # ---以下为FTP---
 
-if [ "$FTP" != "true" ]; then return; fi
+echo "正在配置 FTP 服务"
+
 mkdir -p /etc/vsftpd
 
 cat >/etc/vsftpd/vsftpd.conf <<EOF
@@ -57,22 +52,9 @@ echo "$USERNAME" >/etc/vsftpd/user_list
 
 # ---以下为SFTP---
 
-if [ "$SFTP" != "true" ] && [ "$SSH" != "true" ]; then return; fi
+echo "正在配置 SFTP 服务"
 
-mkdir -p /etc/ssh
-
-if [ ! -f /etc/ssh/ssh_host_rsa_key ]; then
-    ssh-keygen -t rsa -b 4096 -f /etc/ssh/ssh_host_rsa_key -N '' -q
-fi
-if [ ! -f /etc/ssh/ssh_host_ed25519_key ]; then
-    ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N '' -q
-fi
-if [ ! -f /etc/ssh/ssh_host_ecdsa_key ]; then
-    ssh-keygen -t ecdsa -b 521 -f /etc/ssh/ssh_host_ecdsa_key -N '' -q
-fi
-
-chmod 600 /etc/ssh/ssh_host_*_key
-chmod 644 /etc/ssh/ssh_host_*_key.pub
+ssh-keygen -A 2>/dev/null || true
 
 cat >>/etc/ssh/sshd_config <<EOF
 
@@ -90,7 +72,7 @@ fi
 
 # ---以下为SMB---
 
-if [ "$SMB" != "true" ]; then return; fi
+echo "正在配置 SMB 服务"
 
 (
     echo "$PASSWORD"
@@ -117,7 +99,7 @@ EOF
 
 # ---以下为NFS---
 
-if [ "$NFS" != "true" ]; then return; fi
+echo "正在配置 NFS 服务"
 
 echo -n "$SHAREPATH" >/etc/exports
 
@@ -127,7 +109,7 @@ echo " *(${nfs_perms},sync,no_subtree_check,insecure,no_root_squash)" >>/etc/exp
 
 # ---以下为webdav---
 
-if [ "$WEBDAV" != "true" ]; then return; fi
+echo "正在配置 WebDAV 服务"
 
 PASSWORD_HASH=$(caddy hash-password --plaintext "$PASSWORD" 2>/dev/null || echo "$PASSWORD")
 
