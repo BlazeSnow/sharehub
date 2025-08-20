@@ -27,7 +27,7 @@ services:
       SHAREPATH: /sharehub
       WRITABLE: true
       GUEST: false
-      TZ: UTC
+      TZ: UTC+8
       FTP: true
       FTP_PASSIVE: true
       SFTP: false
