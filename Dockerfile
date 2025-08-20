@@ -26,7 +26,7 @@ RUN tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz
 RUN rm -f /tmp/s6-overlay-*.tar.xz
 
 COPY /s6-rc.d/ /etc/s6-overlay/s6-rc.d/
-COPY /cont-init.d/ /etc/s6-overlay/scripts/cont-init.d/
+COPY /cont-init.d/ /etc/cont-init.d/
 
 ENV AGREE=true
 ENV USERNAME=sharehub
