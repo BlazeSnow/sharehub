@@ -14,32 +14,53 @@ cat >/etc/vsftpd/vsftpd.conf <<EOF
 listen=YES
 listen_ipv6=NO
 connect_from_port_20=YES
-pasv_enable=$FTP_PASSIVE
-pasv_min_port=21100
-pasv_max_port=21110
-pasv_address_resolve=NO
-userlist_enable=YES
-userlist_file=/etc/vsftpd/user_list
-userlist_deny=NO
 dirmessage_enable=YES
 xferlog_enable=YES
 xferlog_std_format=YES
+local_enable=YES
+userlist_enable=YES
+userlist_file=/etc/vsftpd/user_list
+userlist_deny=NO
+local_root=$SHAREPATH
 chroot_local_user=YES
 allow_writeable_chroot=YES
-local_enable=YES
+seccomp_sandbox=NO
+tcp_wrappers=YES
+hide_ids=YES
+use_localtime=YES
 EOF
 
-if [ "$WRITABLE" == "true" ]; then
-    echo "write_enable=YES" >>/etc/vsftpd/vsftpd.conf
+# 被动模式
+if [ "$FTP_PASSIVE" == "true" ]; then
+    cat >>/etc/vsftpd/vsftpd.conf <<EOF
+pasv_enable=YES
+pasv_min_port=21100
+pasv_max_port=21110
+pasv_addr_resolve=YES
+EOF
 fi
 
+# 可写权限
+if [ "$WRITABLE" == "true" ]; then
+    echo "write_enable=YES" >>/etc/vsftpd/vsftpd.conf
+else
+    echo "write_enable=NO" >>/etc/vsftpd/vsftpd.conf
+fi
+
+# 访客
 if [ "$GUEST" == "true" ]; then
-    echo "anonymous_enable=YES" >>/etc/vsftpd/vsftpd.conf
-    echo "anon_root=$SHAREPATH" >>/etc/vsftpd/vsftpd.conf
-    echo "no_anon_password=YES" >>/etc/vsftpd/vsftpd.conf
+    cat >>/etc/vsftpd/vsftpd.conf <<EOF
+anonymous_enable=YES
+anon_root=$SHAREPATH
+no_anon_password=YES
+EOF
+
     if [ "$WRITABLE" == "true" ]; then
-        echo "anon_upload_enable=YES" >>/etc/vsftpd/vsftpd.conf
-        echo "anon_mkdir_write_enable=YES" >>/etc/vsftpd/vsftpd.conf
+        cat >>/etc/vsftpd/vsftpd.conf <<EOF
+anon_upload_enable=YES
+anon_mkdir_write_enable=YES
+anon_other_write_enable=YES
+EOF
     fi
 else
     echo "anonymous_enable=NO" >>/etc/vsftpd/vsftpd.conf
