@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# 设置默认值
 USERNAME=${USERNAME:-sharehub}
 PASSWORD=${PASSWORD:-password}
 SHAREPATH=${SHAREPATH:-/sharehub}
@@ -14,56 +13,13 @@ WEBDAV=${WEBDAV:-true}
 SMB=${SMB:-true}
 NFS=${NFS:-true}
 
-echo "================================================="
-echo " ShareHub 多功能文件共享服务正在初始化..."
-echo "================================================="
-echo " 配置信息："
-echo " - 用户名: $USERNAME"
-echo " - 共享路径: $SHAREPATH"
-echo " - 可写权限: $WRITABLE"
-echo " - 访客模式: $GUEST"
-echo " - 时区: $TZ"
-echo " - 启用服务: FTP=$FTP SSH=$SSH SFTP=$SFTP WebDAV=$WEBDAV SMB=$SMB NFS=$NFS"
-echo "================================================="
+# ---以下为FTP---
 
-# 检查同意条款
-if [ "$AGREE" != "true" ]; then
-    echo "错误：你必须设置环境变量 AGREE=true 才能启动此容器。"
-    exit 1
-fi
+if [ "$FTP" != "true" ]; then return; fi
+echo "正在配置FTP"
 
-# 全局初始化
-main_setup() {
-    echo "正在初始化sharehub"
-    echo "设置时区为：$TZ"
-    ln -snf /usr/share/zoneinfo/$TZ /etc/localtime
-    echo "$TZ" >/etc/timezone
-
-    echo "创建用户：$USERNAME"
-    addgroup "sharehub" 2>/dev/null || true
-    adduser -D -G sharehub -s /bin/bash -h "$SHAREPATH" "$USERNAME" 2>/dev/null || true
-    echo "$USERNAME:$PASSWORD" | chpasswd
-
-    echo "创建共享目录：$SHAREPATH"
-    mkdir -p "$SHAREPATH"
-    chown -R "$USERNAME":sharehub "$SHAREPATH"
-
-    if [ "$WRITABLE" == "true" ]; then
-        echo "授予共享目录写权限"
-        chmod -R 775 "$SHAREPATH"
-    else
-        echo "设置共享目录为只读权限"
-        chmod -R 555 "$SHAREPATH"
-    fi
-}
-
-# 配置FTP（只配置，不启动）
-setup_ftp() {
-    if [ "$FTP" != "true" ]; then return; fi
-    echo "正在配置FTP"
-
-    mkdir -p /etc/vsftpd
-    cat >/etc/vsftpd/vsftpd.conf <<EOF
+mkdir -p /etc/vsftpd
+cat >/etc/vsftpd/vsftpd.conf <<EOF
 listen=YES
 listen_ipv6=NO
 connect_from_port_20=YES
@@ -82,37 +38,36 @@ allow_writeable_chroot=YES
 local_enable=YES
 EOF
 
+if [ "$WRITABLE" == "true" ]; then
+    echo "write_enable=YES" >>/etc/vsftpd/vsftpd.conf
+fi
+
+if [ "$GUEST" == "true" ]; then
+    echo "anonymous_enable=YES" >>/etc/vsftpd/vsftpd.conf
+    echo "anon_root=$SHAREPATH" >>/etc/vsftpd/vsftpd.conf
+    echo "no_anon_password=YES" >>/etc/vsftpd/vsftpd.conf
     if [ "$WRITABLE" == "true" ]; then
-        echo "write_enable=YES" >>/etc/vsftpd/vsftpd.conf
+        echo "anon_upload_enable=YES" >>/etc/vsftpd/vsftpd.conf
+        echo "anon_mkdir_write_enable=YES" >>/etc/vsftpd/vsftpd.conf
     fi
+else
+    echo "anonymous_enable=NO" >>/etc/vsftpd/vsftpd.conf
+fi
 
-    if [ "$GUEST" == "true" ]; then
-        echo "anonymous_enable=YES" >>/etc/vsftpd/vsftpd.conf
-        echo "anon_root=$SHAREPATH" >>/etc/vsftpd/vsftpd.conf
-        echo "no_anon_password=YES" >>/etc/vsftpd/vsftpd.conf
-        if [ "$WRITABLE" == "true" ]; then
-            echo "anon_upload_enable=YES" >>/etc/vsftpd/vsftpd.conf
-            echo "anon_mkdir_write_enable=YES" >>/etc/vsftpd/vsftpd.conf
-        fi
-    else
-        echo "anonymous_enable=NO" >>/etc/vsftpd/vsftpd.conf
-    fi
+echo "$USERNAME" >/etc/vsftpd/user_list
 
-    echo "$USERNAME" >/etc/vsftpd/user_list
-}
+# ---以下为SFTP---
 
-# 配置SFTP（只配置，不启动）
-setup_sftp() {
-    if [ "$SFTP" != "true" ] && [ "$SSH" != "true" ]; then return; fi
-    echo "正在配置SFTP/SSH"
+if [ "$SFTP" != "true" ] && [ "$SSH" != "true" ]; then return; fi
+echo "正在配置SFTP/SSH"
 
-    # 生成SSH密钥
-    ssh-keygen -A 2>/dev/null || true
+# 生成SSH密钥
+ssh-keygen -A 2>/dev/null || true
 
-    # 备份原始配置
-    cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak 2>/dev/null || true
+# 备份原始配置
+cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak 2>/dev/null || true
 
-    cat >>/etc/ssh/sshd_config <<EOF
+cat >>/etc/ssh/sshd_config <<EOF
 
 # ShareHub SFTP Configuration
 Match User $USERNAME
@@ -122,26 +77,25 @@ Match User $USERNAME
     X11Forwarding no
 EOF
 
-    if [ "$SSH" != "true" ]; then
-        echo "仅启用SFTP"
-        echo "    ForceCommand internal-sftp" >>/etc/ssh/sshd_config
-    else
-        echo "同时启用SSH和SFTP"
-    fi
-}
+if [ "$SSH" != "true" ]; then
+    echo "仅启用SFTP"
+    echo "    ForceCommand internal-sftp" >>/etc/ssh/sshd_config
+else
+    echo "同时启用SSH和SFTP"
+fi
 
-# 配置SMB（只配置，不启动）
-setup_smb() {
-    if [ "$SMB" != "true" ]; then return; fi
-    echo "正在配置SMB"
+# ---以下为SMB---
 
-    # 添加samba用户
-    (
-        echo "$PASSWORD"
-        echo "$PASSWORD"
-    ) | smbpasswd -a -s "$USERNAME" 2>/dev/null || true
+if [ "$SMB" != "true" ]; then return; fi
+echo "正在配置SMB"
 
-    cat >/etc/samba/smb.conf <<EOF
+# 添加samba用户
+(
+    echo "$PASSWORD"
+    echo "$PASSWORD"
+) | smbpasswd -a -s "$USERNAME" 2>/dev/null || true
+
+cat >/etc/samba/smb.conf <<EOF
 [global]
     workgroup = WORKGROUP
     server string = ShareHub Samba Server
@@ -158,27 +112,24 @@ setup_smb() {
     writable = $([ "$WRITABLE" == "true" ] && echo "yes" || echo "no")
     valid users = $USERNAME $([ "$GUEST" == "true" ] && echo "nobody")
 EOF
-}
 
-# 配置NFS（只配置，不启动）
-setup_nfs() {
-    if [ "$NFS" != "true" ]; then return; fi
-    echo "正在配置NFS"
+# ---以下为NFS---
 
-    echo -n "$SHAREPATH" >/etc/exports
-    local nfs_perms=$([ "$WRITABLE" == "true" ] && echo "rw" || echo "ro")
-    echo " *(${nfs_perms},sync,no_subtree_check,insecure,no_root_squash)" >>/etc/exports
-}
+if [ "$NFS" != "true" ]; then return; fi
+echo "正在配置NFS"
 
-# 配置WebDAV（使用Caddy - 超级简单！）
-setup_webdav() {
-    if [ "$WEBDAV" != "true" ]; then return; fi
-    echo "正在配置WebDAV (Caddy)"
+echo -n "$SHAREPATH" >/etc/exports
+local nfs_perms=$([ "$WRITABLE" == "true" ] && echo "rw" || echo "ro")
+echo " *(${nfs_perms},sync,no_subtree_check,insecure,no_root_squash)" >>/etc/exports
 
-    # 生成密码哈希
-    PASSWORD_HASH=$(caddy hash-password --plaintext "$PASSWORD" 2>/dev/null || echo "$PASSWORD")
+# ---以下为webdav---
 
-    cat >/etc/caddy/Caddyfile <<EOF
+if [ "$WEBDAV" != "true" ]; then return; fi
+
+# 生成密码哈希
+PASSWORD_HASH=$(caddy hash-password --plaintext "$PASSWORD" 2>/dev/null || echo "$PASSWORD")
+
+cat >/etc/caddy/Caddyfile <<EOF
 :80 {
     # 文件浏览器
     route /* {
@@ -200,14 +151,14 @@ setup_webdav() {
             prefix /webdav
 EOF
 
-    if [ "$WRITABLE" != "true" ]; then
-        cat >>/etc/caddy/Caddyfile <<EOF
+if [ "$WRITABLE" != "true" ]; then
+    cat >>/etc/caddy/Caddyfile <<EOF
             # 只读模式 - 禁止写操作
             read_only
 EOF
-    fi
+fi
 
-    cat >>/etc/caddy/Caddyfile <<EOF
+cat >>/etc/caddy/Caddyfile <<EOF
         }
     }
     
@@ -218,59 +169,6 @@ EOF
 }
 EOF
 
-    # 创建日志目录
-    mkdir -p /var/log/caddy
-    chown -R caddy:caddy /var/log/caddy 2>/dev/null || true
-}
-
-# 执行初始化
-echo "开始初始化..."
-main_setup
-setup_ftp
-setup_sftp
-setup_smb
-setup_nfs
-setup_webdav
-
-# 根据环境变量动态启用服务
-echo "根据配置启用服务..."
-
-if [ "$FTP" = "true" ]; then
-    echo "启用FTP服务"
-    touch /etc/s6-overlay/s6-rc.d/user/contents.d/ftp
-fi
-
-if [ "$NFS" = "true" ]; then
-    echo "启用NFS服务"
-    touch /etc/s6-overlay/s6-rc.d/user/contents.d/nfs-bundle
-fi
-
-if [ "$SMB" = "true" ]; then
-    echo "启用SMB服务"
-    touch /etc/s6-overlay/s6-rc.d/user/contents.d/smb-bundle
-fi
-
-if [ "$SFTP" = "true" ] || [ "$SSH" = "true" ]; then
-    echo "启用SFTP/SSH服务"
-    touch /etc/s6-overlay/s6-rc.d/user/contents.d/sftp
-fi
-
-if [ "$WEBDAV" = "true" ]; then
-    echo "启用WebDAV服务 (Caddy)"
-    touch /etc/s6-overlay/s6-rc.d/user/contents.d/webdav
-fi
-
-echo "================================================="
-echo "ShareHub初始化完成！"
-echo "================================================="
-echo " 连接信息（使用默认配置）："
-echo " FTP:     ftp://sharehub:password@<host>:21"
-echo " SFTP:    sftp://sharehub:password@<host>:22"
-echo " SSH:     ssh sharehub@<host>"
-echo " WebDAV:  http://<host>/webdav"
-echo " 文件浏览: http://<host>/"
-echo " SMB:     smb://<host>/share"
-echo " NFS:     <host>:/sharehub"
-echo "================================================="
-echo "已启用的服务将由s6-overlay自动启动"
-echo "================================================="
+# 创建日志目录
+mkdir -p /var/log/caddy
+chown -R caddy:caddy /var/log/caddy 2>/dev/null || true
