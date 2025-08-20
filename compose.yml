@@ -11,7 +11,6 @@ services:
     volumes:
       - ./data:/sharehub
     ports:
-      - 20:20
       - 21:21
       - 22:22
       - 80:80
@@ -19,6 +18,7 @@ services:
       - 443:443
       - 4455:445 # For Windows development
       - 2049:2049
+      - 21100-21110:21100-21110
     environment:
       AGREE: true
       USERNAME: sharehub
@@ -28,6 +28,7 @@ services:
       GUEST: false
       TZ: UTC+8
       FTP: true
+      FTP_PASSIVE: true
       SFTP: false
       SSH: false
       WEBDAV: false
