@@ -43,10 +43,11 @@ chroot_local_user=YES
 allow_writeable_chroot=YES
 write_enable=$([ $WRITABLE == true ] && echo "YES" || echo "NO")
 port_enable=YES
-pasv_enable=YES
+pasv_enable=$([ $FTP_PASSIVE == true ] && echo "YES" || echo "NO")
 pasv_min_port=21100
 pasv_max_port=21110
 pasv_address=$FTP_PASSIVE_IP
+pasv_addr_resolve=NO
 seccomp_sandbox=NO
 hide_ids=YES
 
