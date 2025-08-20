@@ -59,23 +59,23 @@ fi
 mkdir -p /etc/s6-overlay/s6-rc.d/user/contents.d
 
 if [ "$FTP" = "true" ]; then
-    ln -sf /etc/s6-overlay/s6-rc.d/ftp /etc/s6-overlay/s6-rc.d/user/contents.d/ftp
+    touch /etc/s6-overlay/s6-rc.d/user/contents.d/ftp
 fi
 
 if [ "$SFTP" = "true" ] || [ "$SSH" = "true" ]; then
-    ln -sf /etc/s6-overlay/s6-rc.d/sftp /etc/s6-overlay/s6-rc.d/user/contents.d/sftp
+    touch /etc/s6-overlay/s6-rc.d/user/contents.d/sftp
 fi
 
 if [ "$WEBDAV" = "true" ]; then
-    ln -sf /etc/s6-overlay/s6-rc.d/webdav /etc/s6-overlay/s6-rc.d/user/contents.d/webdav
+    touch /etc/s6-overlay/s6-rc.d/user/contents.d/webdav
 fi
 
 if [ "$SMB" = "true" ]; then
-    ln -sf /etc/s6-overlay/s6-rc.d/smb-bundle /etc/s6-overlay/s6-rc.d/user/contents.d/smb-bundle
+    touch /etc/s6-overlay/s6-rc.d/user/contents.d/smb-bundle
 fi
 
 if [ "$NFS" = "true" ]; then
-    ln -sf /etc/s6-overlay/s6-rc.d/nfs-bundle /etc/s6-overlay/s6-rc.d/user/contents.d/nfs-bundle
+    touch /etc/s6-overlay/s6-rc.d/user/contents.d/nfs-bundle
 fi
 
 exec /init
