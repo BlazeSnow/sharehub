@@ -65,6 +65,7 @@ fi
 mkdir -p /etc/s6-overlay/s6-rc.d/user/contents.d
 
 if [ "$FTP" = "true" ]; then
+    /srv/init/ftp.sh
     touch /etc/s6-overlay/s6-rc.d/user/contents.d/ftp
 fi
 
