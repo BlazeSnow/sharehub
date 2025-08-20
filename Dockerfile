@@ -15,6 +15,13 @@ ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLA
 RUN tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz
 RUN rm -f /tmp/s6-overlay-*.tar.xz
 
+RUN echo "oneshot" > /etc/s6-overlay/s6-rc.d/sharehub/type \
+    && echo "longrun" > /etc/s6-overlay/s6-rc.d/ftp/type \
+    && echo "longrun" > /etc/s6-overlay/s6-rc.d/sftp/type \
+    && echo "longrun" > /etc/s6-overlay/s6-rc.d/webdav/type \
+    && echo "longrun" > /etc/s6-overlay/s6-rc.d/smb/type \
+    && echo "longrun" > /etc/s6-overlay/s6-rc.d/nfs/type
+
 ENV AGREE=true
 ENV USERNAME=sharehub
 ENV PASSWORD=password
@@ -30,9 +37,6 @@ ENV WEBDAV=true
 ENV SMB=true
 ENV NFS=true
 
-EXPOSE 20 21 22 80 139 443 445 2049 21100-21110 
+EXPOSE 20 21 22 80 139 443 445 2049 21100-21110
 
-COPY ./entrypoint.sh /srv/entrypoint.sh
-RUN chmod 700 /srv/entrypoint.sh
-
-ENTRYPOINT [ "/srv/entrypoint.sh" ]
+ENTRYPOINT [ "/init" ]
