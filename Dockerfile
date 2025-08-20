@@ -17,14 +17,6 @@ RUN rm -f /tmp/s6-overlay-*.tar.xz
 
 COPY /s6-overlay/ /etc/s6-overlay/s6-rc.d/
 
-RUN mkdir -p /etc/s6-overlay/s6-rc.d/{sharehub,ftp,sftp,webdav,smb,nfs,user/contents.d} \
-    && echo "oneshot" > /etc/s6-overlay/s6-rc.d/sharehub/type \
-    && echo "longrun" > /etc/s6-overlay/s6-rc.d/ftp/type \
-    && echo "longrun" > /etc/s6-overlay/s6-rc.d/sftp/type \
-    && echo "longrun" > /etc/s6-overlay/s6-rc.d/webdav/type \
-    && echo "longrun" > /etc/s6-overlay/s6-rc.d/smb/type \
-    && echo "longrun" > /etc/s6-overlay/s6-rc.d/nfs/type
-
 ENV AGREE=true
 ENV USERNAME=sharehub
 ENV PASSWORD=password
