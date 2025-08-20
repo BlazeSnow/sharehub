@@ -4,7 +4,6 @@ USERNAME=${USERNAME:-sharehub}
 SHAREPATH=${SHAREPATH:-/sharehub}
 WRITABLE=${WRITABLE:-true}
 GUEST=${GUEST:-false}
-FTP_PASSIVE=$([ "${FTP_PASSIVE}" == "true" ] && echo "YES" || echo "NO")
 
 echo "正在配置 FTP 服务"
 
@@ -27,17 +26,8 @@ allow_writeable_chroot=YES
 seccomp_sandbox=NO
 hide_ids=YES
 use_localtime=YES
+pasv_enable=NO
 EOF
-
-# 被动模式
-if [ "$FTP_PASSIVE" == "true" ]; then
-    cat >>/etc/vsftpd/vsftpd.conf <<EOF
-pasv_enable=YES
-pasv_min_port=21100
-pasv_max_port=21110
-pasv_addr_resolve=YES
-EOF
-fi
 
 # 可写权限
 if [ "$WRITABLE" == "true" ]; then
