@@ -1,0 +1,4 @@
+#!/bin/bash
+
+echo "启动 NMBD 服务"
+exec /usr/sbin/nmbd -F --no-process-group
