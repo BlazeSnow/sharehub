@@ -1,4 +1,51 @@
 #!/bin/bash
 
+USERNAME=${USERNAME:-sharehub}
+SHAREPATH=${SHAREPATH:-/sharehub}
+WRITABLE=${WRITABLE:-true}
+GUEST=${GUEST:-false}
+FTP_PASSIVE=$([ "${FTP_PASSIVE}" == "true" ] && echo "YES" || echo "NO")
+
+echo "正在配置 FTP 服务"
+
+mkdir -p /etc/vsftpd
+
+cat >/etc/vsftpd/vsftpd.conf <<EOF
+listen=YES
+listen_ipv6=NO
+connect_from_port_20=YES
+pasv_enable=$FTP_PASSIVE
+pasv_min_port=21100
+pasv_max_port=21110
+pasv_address_resolve=NO
+userlist_enable=YES
+userlist_file=/etc/vsftpd/user_list
+userlist_deny=NO
+dirmessage_enable=YES
+xferlog_enable=YES
+xferlog_std_format=YES
+chroot_local_user=YES
+allow_writeable_chroot=YES
+local_enable=YES
+EOF
+
+if [ "$WRITABLE" == "true" ]; then
+    echo "write_enable=YES" >>/etc/vsftpd/vsftpd.conf
+fi
+
+if [ "$GUEST" == "true" ]; then
+    echo "anonymous_enable=YES" >>/etc/vsftpd/vsftpd.conf
+    echo "anon_root=$SHAREPATH" >>/etc/vsftpd/vsftpd.conf
+    echo "no_anon_password=YES" >>/etc/vsftpd/vsftpd.conf
+    if [ "$WRITABLE" == "true" ]; then
+        echo "anon_upload_enable=YES" >>/etc/vsftpd/vsftpd.conf
+        echo "anon_mkdir_write_enable=YES" >>/etc/vsftpd/vsftpd.conf
+    fi
+else
+    echo "anonymous_enable=NO" >>/etc/vsftpd/vsftpd.conf
+fi
+
+echo "$USERNAME" >/etc/vsftpd/user_list
+
 echo "启动 FTP 服务器"
 exec /usr/sbin/vsftpd /etc/vsftpd/vsftpd.conf

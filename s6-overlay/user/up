@@ -9,93 +9,15 @@ SSH=${SSH:-false}
 
 # ---以下为FTP---
 
-echo "正在配置 FTP 服务"
 
-mkdir -p /etc/vsftpd
-
-cat >/etc/vsftpd/vsftpd.conf <<EOF
-listen=YES
-listen_ipv6=NO
-connect_from_port_20=YES
-pasv_enable=${FTP_PASSIVE:-YES}
-pasv_min_port=21100
-pasv_max_port=21110
-pasv_address_resolve=NO
-userlist_enable=YES
-userlist_file=/etc/vsftpd/user_list
-userlist_deny=NO
-dirmessage_enable=YES
-xferlog_enable=YES
-xferlog_std_format=YES
-chroot_local_user=YES
-allow_writeable_chroot=YES
-local_enable=YES
-EOF
-
-if [ "$WRITABLE" == "true" ]; then
-    echo "write_enable=YES" >>/etc/vsftpd/vsftpd.conf
-fi
-
-if [ "$GUEST" == "true" ]; then
-    echo "anonymous_enable=YES" >>/etc/vsftpd/vsftpd.conf
-    echo "anon_root=$SHAREPATH" >>/etc/vsftpd/vsftpd.conf
-    echo "no_anon_password=YES" >>/etc/vsftpd/vsftpd.conf
-    if [ "$WRITABLE" == "true" ]; then
-        echo "anon_upload_enable=YES" >>/etc/vsftpd/vsftpd.conf
-        echo "anon_mkdir_write_enable=YES" >>/etc/vsftpd/vsftpd.conf
-    fi
-else
-    echo "anonymous_enable=NO" >>/etc/vsftpd/vsftpd.conf
-fi
-
-echo "$USERNAME" >/etc/vsftpd/user_list
 
 # ---以下为SFTP---
 
-echo "正在配置 SFTP 服务"
 
-ssh-keygen -A 2>/dev/null || true
-
-cat >>/etc/ssh/sshd_config <<EOF
-
-# ShareHub SFTP Configuration
-Match User $USERNAME
-    ChrootDirectory %h
-    PasswordAuthentication yes
-    AllowTcpForwarding no
-    X11Forwarding no
-EOF
-
-if [ "$SSH" != "true" ]; then
-    echo "    ForceCommand internal-sftp" >>/etc/ssh/sshd_config
-fi
 
 # ---以下为SMB---
 
-echo "正在配置 SMB 服务"
 
-(
-    echo "$PASSWORD"
-    echo "$PASSWORD"
-) | smbpasswd -a -s "$USERNAME" 2>/dev/null || true
-
-cat >/etc/samba/smb.conf <<EOF
-[global]
-    workgroup = WORKGROUP
-    server string = ShareHub Samba Server
-    security = user
-    map to guest = bad user
-    log file = /var/log/samba/log.%m
-    max log size = 50
-    
-[share]
-    path = $SHAREPATH
-    browseable = yes
-    guest ok = ${GUEST:-no}
-    read only = $([ "$WRITABLE" == "true" ] && echo "no" || echo "yes")
-    writable = $([ "$WRITABLE" == "true" ] && echo "yes" || echo "no")
-    valid users = $USERNAME $([ "$GUEST" == "true" ] && echo "nobody")
-EOF
 
 # ---以下为NFS---
 

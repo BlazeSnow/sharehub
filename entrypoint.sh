@@ -71,7 +71,7 @@ if [ "$WEBDAV" = "true" ]; then
 fi
 
 if [ "$SMB" = "true" ]; then
-    touch /etc/s6-overlay/s6-rc.d/user/contents.d/smb-bundle
+    touch /etc/s6-overlay/s6-rc.d/user/contents.d/smb
 fi
 
 if [ "$NFS" = "true" ]; then

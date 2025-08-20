@@ -1,4 +1,0 @@
-#!/bin/bash
-
-echo "启动 NetBIOS 名称服务"
-exec /usr/sbin/nmbd -F --no-process-group
