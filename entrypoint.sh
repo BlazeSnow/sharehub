@@ -76,9 +76,14 @@ fi
 
 if [ "$NFS" = "true" ]; then
     touch /etc/s6-overlay/s6-rc.d/user/contents.d/nfs-bundle
-fi
 
-chmod +x /etc/s6-overlay/s6-rc.d/user/up
-/etc/s6-overlay/s6-rc.d/user/up
+    echo "正在配置 NFS 服务"
+
+    echo -n "$SHAREPATH" >/etc/exports
+
+    nfs_perms=$([ "$WRITABLE" == "true" ] && echo "rw" || echo "ro")
+
+    echo " *(${nfs_perms},sync,no_subtree_check,insecure,no_root_squash)" >>/etc/exports
+fi
 
 exec /init
