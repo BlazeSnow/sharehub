@@ -1,0 +1,4 @@
+#!/bin/bash
+
+echo "启动 Mount 守护进程"
+exec /usr/sbin/rpc.mountd -F

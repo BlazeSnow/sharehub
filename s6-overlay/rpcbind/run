@@ -1,0 +1,4 @@
+#!/bin/bash
+
+echo "启动 RPC 服务"
+exec /sbin/rpcbind -f

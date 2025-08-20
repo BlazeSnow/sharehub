@@ -1,0 +1,5 @@
+#!/bin/bash
+
+echo "启动 NFS 守护进程"
+exportfs -a
+exec /usr/sbin/rpc.nfsd -F 8
