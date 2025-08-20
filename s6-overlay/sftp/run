@@ -1,0 +1,4 @@
+#!/bin/bash
+
+echo "启动 SSH 或 SFTP 服务器"
+exec /usr/sbin/sshd -D

@@ -1,4 +1,4 @@
 #!/bin/bash
 
-echo "启动FTP服务器"
+echo "启动 FTP 服务器"
 exec /usr/sbin/vsftpd /etc/vsftpd/vsftpd.conf

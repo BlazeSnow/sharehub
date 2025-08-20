@@ -1,0 +1,5 @@
+#!/bin/bash
+
+echo "启动 SMB 服务器"
+exec /usr/sbin/smbd -F --no-process-group
+exec /usr/sbin/nmbd -F --no-process-group

@@ -1,0 +1,4 @@
+#!/bin/bash
+
+echo "启动 WebDAV 服务器"
+exec nginx -g "daemon off;"
