@@ -10,16 +10,7 @@ services:
       - SYS_ADMIN # For NFS
     volumes:
       - ./data:/sharehub
-    ports:
-      - 20:20
-      - 21:21
-      - 22:22
-      - 80:80
-      - 139:139
-      - 443:443
-      - 4455:445 # For Windows development
-      - 2049:2049
-      - 21100-21110:21100-21110
+    network_mode: host
     environment:
       AGREE: true
       USERNAME: sharehub
