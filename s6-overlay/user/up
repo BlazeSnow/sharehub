@@ -113,6 +113,9 @@ echo "正在配置 WebDAV 服务"
 
 PASSWORD_HASH=$(caddy hash-password --plaintext "$PASSWORD" 2>/dev/null || echo "$PASSWORD")
 
+mkdir -p /etc/caddy
+touch /etc/caddy/Caddyfile
+
 if [ "$WRITABLE" = "false" ]; then
     cat >/etc/caddy/Caddyfile <<EOF
 {

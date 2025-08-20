@@ -1,4 +1,4 @@
 #!/bin/bash
 
 echo "启动 WebDAV 服务器"
-exec caddy run --config /etc/caddy/Caddyfile
+exec /usr/bin/caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
