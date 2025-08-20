@@ -70,27 +70,23 @@ if [ "$FTP" = "true" ]; then
 fi
 
 if [ "$SFTP" = "true" ] || [ "$SSH" = "true" ]; then
+    /srv/init/sftp.sh
     touch /etc/s6-overlay/s6-rc.d/user/contents.d/sftp
 fi
 
 if [ "$WEBDAV" = "true" ]; then
+    /srv/init/webdav.sh
     touch /etc/s6-overlay/s6-rc.d/user/contents.d/webdav
 fi
 
 if [ "$SMB" = "true" ]; then
+    /srv/init/smb.sh
     touch /etc/s6-overlay/s6-rc.d/user/contents.d/smb
 fi
 
 if [ "$NFS" = "true" ]; then
+    /srv/init/nfs.sh
     touch /etc/s6-overlay/s6-rc.d/user/contents.d/nfs-bundle
-
-    echo "正在配置 NFS 服务"
-
-    echo -n "$SHAREPATH" >/etc/exports
-
-    nfs_perms=$([ "$WRITABLE" == "true" ] && echo "rw" || echo "ro")
-
-    echo " *(${nfs_perms},sync,no_subtree_check,insecure,no_root_squash)" >>/etc/exports
 fi
 
 exec /init
