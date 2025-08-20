@@ -1,1 +1,0 @@
-docker.exe compose build
