@@ -66,10 +66,6 @@ mkdir -p /etc/s6-overlay/s6-rc.d/user/contents.d
 
 if [ "$FTP" = "true" ]; then
     touch /etc/s6-overlay/s6-rc.d/user/contents.d/ftp
-    for var in USERNAME PASSWORD SHAREPATH WRITABLE GUEST TZ FTP_PASSIVE FTP_PASSIVE_IP; do
-        val="$(printenv "$var")"
-        [ -n "$val" ] && echo "$val" >"/etc/s6-overlay/s6-rc.d/ftp/env/$var"
-    done
 fi
 
 if [ "$SFTP" = "true" ] || [ "$SSH" = "true" ]; then
