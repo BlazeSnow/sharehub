@@ -78,4 +78,7 @@ if [ "$NFS" = "true" ]; then
     touch /etc/s6-overlay/s6-rc.d/user/contents.d/nfs-bundle
 fi
 
+chmod +x /etc/s6-overlay/s6-rc.d/user/up
+/etc/s6-overlay/s6-rc.d/user/up
+
 exec /init
