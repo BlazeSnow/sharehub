@@ -16,9 +16,8 @@ NFS=${NFS:-true}
 # ---以下为FTP---
 
 if [ "$FTP" != "true" ]; then return; fi
-echo "正在配置FTP"
-
 mkdir -p /etc/vsftpd
+
 cat >/etc/vsftpd/vsftpd.conf <<EOF
 listen=YES
 listen_ipv6=NO
@@ -59,12 +58,9 @@ echo "$USERNAME" >/etc/vsftpd/user_list
 # ---以下为SFTP---
 
 if [ "$SFTP" != "true" ] && [ "$SSH" != "true" ]; then return; fi
-echo "正在配置SFTP/SSH"
 
-# 生成SSH密钥
 ssh-keygen -A 2>/dev/null || true
 
-# 备份原始配置
 cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak 2>/dev/null || true
 
 cat >>/etc/ssh/sshd_config <<EOF
@@ -78,18 +74,13 @@ Match User $USERNAME
 EOF
 
 if [ "$SSH" != "true" ]; then
-    echo "仅启用SFTP"
     echo "    ForceCommand internal-sftp" >>/etc/ssh/sshd_config
-else
-    echo "同时启用SSH和SFTP"
 fi
 
 # ---以下为SMB---
 
 if [ "$SMB" != "true" ]; then return; fi
-echo "正在配置SMB"
 
-# 添加samba用户
 (
     echo "$PASSWORD"
     echo "$PASSWORD"
@@ -116,17 +107,17 @@ EOF
 # ---以下为NFS---
 
 if [ "$NFS" != "true" ]; then return; fi
-echo "正在配置NFS"
 
 echo -n "$SHAREPATH" >/etc/exports
+
 local nfs_perms=$([ "$WRITABLE" == "true" ] && echo "rw" || echo "ro")
+
 echo " *(${nfs_perms},sync,no_subtree_check,insecure,no_root_squash)" >>/etc/exports
 
 # ---以下为webdav---
 
 if [ "$WEBDAV" != "true" ]; then return; fi
 
-# 生成密码哈希
 PASSWORD_HASH=$(caddy hash-password --plaintext "$PASSWORD" 2>/dev/null || echo "$PASSWORD")
 
 cat >/etc/caddy/Caddyfile <<EOF
@@ -169,6 +160,5 @@ cat >>/etc/caddy/Caddyfile <<EOF
 }
 EOF
 
-# 创建日志目录
 mkdir -p /var/log/caddy
 chown -R caddy:caddy /var/log/caddy 2>/dev/null || true
