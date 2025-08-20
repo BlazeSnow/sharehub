@@ -3,6 +3,8 @@
 echo "正在配置 FTP 服务"
 
 mkdir -p /etc/vsftpd
+rm -f /etc/vsftpd/vsftpd.conf
+touch /etc/vsftpd/vsftpd.conf
 
 cat >/etc/vsftpd/vsftpd.conf <<EOF
 # 基础配置
@@ -38,6 +40,7 @@ tcp_wrappers=NO
 EOF
 
 # 创建用户列表
+touch /etc/vsftpd/user_list
 echo "$USERNAME" >/etc/vsftpd/user_list
 
 echo "启动 FTP 服务器"
