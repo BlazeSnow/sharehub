@@ -26,7 +26,6 @@ RUN tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz
 RUN rm -f /tmp/s6-overlay-*.tar.xz
 
 COPY /s6-rc.d/ /etc/s6-overlay/s6-rc.d/
-COPY /cont-init.d/ /etc/cont-init.d/
 
 ENV AGREE=true
 ENV USERNAME=sharehub
@@ -45,4 +44,8 @@ ENV NFS=true
 
 EXPOSE 20 21 22 80 139 443 445 2049 21100-21110
 
-ENTRYPOINT [ "/init" ]
+COPY entrypoint.sh /srv/entrypoint.sh
+RUN chmod +x /srv/entrypoint.sh
+COPY init/* /srv/init/
+
+ENTRYPOINT [ "/srv/entrypoint.sh" ]
