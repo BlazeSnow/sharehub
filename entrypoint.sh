@@ -65,14 +65,11 @@ fi
 
 # ------------FTP------------
 
-# 创建共享目录
-mkdir -p "$SHAREPATH"
 # 创建虚拟用户文件
 echo -e "$USERNAME\n$PASSWORD" >/etc/vsftpd/virtual_users.txt
 /usr/bin/db_load -T -t hash -f /etc/vsftpd/virtual_users.txt /etc/vsftpd/virtual_users.db
-# 创建用户目录
-mkdir -p "$SHAREPATH"
 chown -R ftp:ftp "$SHAREPATH"
+
 # 被动模式配置
 PASV_CONFIG=""
 if [ "$FTP_PASSIVE" = "true" ]; then

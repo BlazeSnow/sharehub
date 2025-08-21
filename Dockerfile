@@ -32,6 +32,6 @@ ENV NFS=true
 EXPOSE 20 21 22 80 139 443 445 2049 21100-21110
 
 COPY entrypoint.sh /srv/entrypoint.sh
-RUN chmod +x /srv/entrypoint.sh
+RUN chmod 700 /srv/entrypoint.sh
 
 ENTRYPOINT [ "/srv/entrypoint.sh" ]
