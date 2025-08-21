@@ -1,10 +1,4 @@
-FROM golang:alpine AS builder
-
-RUN go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
-
-WORKDIR /build
-
-RUN xcaddy build --with github.com/mholt/caddy-webdav
+FROM blazesnow/caddy:webdav-alpine AS builder
 
 FROM alpine:3.22.1
 
@@ -15,7 +9,7 @@ RUN apk update \
     samba \
     nfs-utils rpcbind
 
-COPY --from=builder /build/caddy /usr/bin/caddy
+COPY --from=builder /usr/bin/caddy /usr/bin/caddy
 RUN chmod +x /usr/bin/caddy
 
 COPY /s6-rc.d/ /etc/s6-overlay/s6-rc.d/
