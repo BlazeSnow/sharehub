@@ -65,55 +65,92 @@ fi
 
 # ------------FTP------------
 
-echo "正在配置 FTP 服务"
-
-mkdir -p /etc/vsftpd
-rm -f /etc/vsftpd/vsftpd.conf
-touch /etc/vsftpd/vsftpd.conf
-
+# 创建共享目录
+mkdir -p "$SHAREPATH"
+# 创建虚拟用户文件
+echo -e "$USERNAME\n$PASSWORD" >/etc/vsftpd/virtual_users.txt
+/usr/bin/db_load -T -t hash -f /etc/vsftpd/virtual_users.txt /etc/vsftpd/virtual_users.db
+# 创建用户目录
+mkdir -p "$SHAREPATH"
+chown -R ftp:ftp "$SHAREPATH"
+# 被动模式配置
+PASV_CONFIG=""
+if [ "$FTP_PASSIVE" = "true" ]; then
+    PASV_CONFIG="pasv_enable=YES
+pasv_min_port=21100
+pasv_max_port=21110"
+    if [ "$FTP_PASSIVE_IP" != "0.0.0.0" ]; then
+        PASV_CONFIG="$PASV_CONFIG
+pasv_address=$FTP_PASSIVE_IP"
+    fi
+else
+    PASV_CONFIG="pasv_enable=NO"
+fi
+# 可写权限配置
+if [ "$WRITABLE" = "true" ]; then
+    WRITE_CONFIG="write_enable=YES
+anon_upload_enable=YES
+anon_mkdir_write_enable=YES
+anon_other_write_enable=YES"
+else
+    WRITE_CONFIG="write_enable=NO
+anon_upload_enable=NO
+anon_mkdir_write_enable=NO
+anon_other_write_enable=NO"
+fi
+# 访客模式配置
+if [ "$GUEST" = "true" ]; then
+    ANON_CONFIG="anonymous_enable=YES
+anon_root=$SHAREPATH
+no_anon_password=YES"
+else
+    ANON_CONFIG="anonymous_enable=NO"
+fi
+# 生成vsftpd配置文件
 cat >/etc/vsftpd/vsftpd.conf <<EOF
-# 基础配置
+# 基本配置
 listen=YES
 listen_ipv6=NO
-anonymous_enable=$([ "$GUEST" == "true" ] && echo "YES" || echo "NO")
-local_enable=YES
-dirmessage_enable=YES
-use_localtime=YES
-xferlog_enable=YES
+$ANON_CONFIG
+local_enable=NO
+guest_enable=YES
+guest_username=ftp
+virtual_use_local_privs=YES
+# 写权限配置
+$WRITE_CONFIG
+# 虚拟用户配置
+user_config_dir=/etc/vsftpd/user_conf
+pam_service_name=vsftpd_virtual
+# 数据传输
 connect_from_port_20=YES
-
-# 用户配置
-userlist_enable=YES
-userlist_file=/etc/vsftpd/user_list
-userlist_deny=NO
+ftp_data_port=20
+# 被动模式配置
+$PASV_CONFIG
+# 目录和权限
 local_root=$SHAREPATH
-
-# chroot 配置
 chroot_local_user=YES
 allow_writeable_chroot=YES
-write_enable=$([ "$WRITABLE" == "true" ] && echo "YES" || echo "NO")
-port_enable=YES
-pasv_enable=$([ "$FTP_PASSIVE" == "true" ] && echo "YES" || echo "NO")
-seccomp_sandbox=NO
-hide_ids=YES
-
-# 修复常见连接问题
-tcp_wrappers=NO
+# 日志
+xferlog_enable=YES
+xferlog_file=/var/log/xferlog
+log_ftp_protocol=YES
+# 其他
+background=NO
+max_clients=10
+max_per_ip=5
+use_localtime=YES
 EOF
-
-if [ "$FTP_PASSIVE" == "true" ]; then
-    cat >>/etc/vsftpd/vsftpd.conf <<EOF
-pasv_min_port=21100
-pasv_max_port=21110
-pasv_address=$FTP_PASSIVE_IP
-pasv_addr_resolve=NO
-pasv_promiscuous=YES
+# 创建用户配置目录
+mkdir -p /etc/vsftpd/user_conf
+# 为用户创建个人配置
+cat >/etc/vsftpd/user_conf/$USERNAME <<EOF
+local_root=$SHAREPATH
+write_enable=$([[ "$WRITABLE" = "true" ]] && echo "YES" || echo "NO")
+anon_world_readable_only=NO
+anon_upload_enable=$([[ "$WRITABLE" = "true" ]] && echo "YES" || echo "NO")
+anon_mkdir_write_enable=$([[ "$WRITABLE" = "true" ]] && echo "YES" || echo "NO")
+anon_other_write_enable=$([[ "$WRITABLE" = "true" ]] && echo "YES" || echo "NO")
 EOF
-fi
-
-# 创建用户列表
-touch /etc/vsftpd/user_list
-echo "$USERNAME" >/etc/vsftpd/user_list
 
 # ------------SFTP------------
 
